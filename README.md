@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/yourusername/moplexity/main/frontend/public/logo.svg" alt="Moplexity Logo" width="120" height="120">
+  <img src="frontend/public/logo.svg" alt="Moplexity Logo" width="120" height="120">
   <h1>Moplexity</h1>
   <p><strong>Open-source AI search assistant - Open Knowledge should not be $20/month</strong></p>
   
@@ -19,7 +19,7 @@ Moplexity is an open-source alternative to Perplexity AI. It combines multi-sour
 - **Multi-Source Search**: Cascading search through DuckDuckGo, Bing, and Google
 - **YouTube Transcripts**: Extract and search through video transcripts
 - **Reddit Integration**: Search Reddit discussions via RSS feeds
-- **Flexible AI Models**: Use any LLM via LiteLLM (OpenAI, Anthropic, Google, etc.)
+- **All LLM Support**: Supports all LLMs via LiteLLM (OpenAI, Anthropic, Google, and 100+ more)
 - **Conversation History**: All chats and sources stored in SQLite
 - **Streaming Responses**: Real-time AI responses with Server-Sent Events
 - **Clean Interface**: Modern UI built with Vue.js
@@ -47,8 +47,6 @@ Moplexity is an open-source alternative to Perplexity AI. It combines multi-sour
 ```bash
 git clone https://github.com/yourusername/moplexity.git
 cd moplexity
-cp backend/.env.example backend/.env
-# Edit backend/.env and add your API keys
 docker-compose up --build
 ```
 
@@ -80,23 +78,7 @@ Open http://localhost:5173
 
 ## Configuration
 
-### Backend
-
-Edit `backend/.env`:
-
-```env
-LITELLM_MODEL=gpt-3.5-turbo
-OPENAI_API_KEY=your_key_here
-# ANTHROPIC_API_KEY=your_key_here
-# GOOGLE_API_KEY=your_key_here
-```
-
-### Supported LLM Models
-
-- OpenAI: `gpt-3.5-turbo`, `gpt-4`, `gpt-4-turbo-preview`
-- Anthropic: `claude-3-sonnet-20240229`, `claude-3-opus-20240229`
-- Google: `gemini-pro`
-- Many more via [LiteLLM](https://github.com/BerriAI/litellm)
+Configure LLM API keys directly from the frontend Settings page. Supports all LLM providers via [LiteLLM](https://github.com/BerriAI/litellm) - OpenAI, Anthropic, Google, Cohere, Together AI, and 100+ more.
 
 ## Architecture
 
