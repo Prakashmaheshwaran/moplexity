@@ -1,206 +1,136 @@
-# Moplexity
+<div align="center">
+  <img src="https://raw.githubusercontent.com/yourusername/moplexity/main/frontend/public/logo.svg" alt="Moplexity Logo" width="120" height="120">
+  <h1>Moplexity</h1>
+  <p><strong>Open-source AI search assistant - Open Knowledge should not be $20/month</strong></p>
+  
+  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+  [![Vue.js](https://img.shields.io/badge/Vue.js-3.3+-green.svg)](https://vuejs.org/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com/)
+  [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+</div>
 
-A powerful Perplexity clone with configurable LLM APIs, multi-source search, and full control over your AI search experience.
+---
+
+Moplexity is an open-source alternative to Perplexity AI. It combines multi-source web search with configurable LLM APIs to provide AI-powered answers with citations, giving you full control over your AI search experience.
 
 ## Features
 
-- 🔍 **Multi-Source Search**: Cascading search through DuckDuckGo, Bing, and Google
-- 📺 **YouTube Transcripts**: Extract and search through video transcripts
-- 💬 **Reddit Integration**: Search Reddit discussions via RSS feeds
-- 🤖 **Flexible AI Models**: Use any LLM via LiteLLM (OpenAI, Anthropic, Google, etc.)
-- 💾 **Conversation History**: All chats and sources stored in SQLite
-- ⚡ **Streaming Responses**: Real-time AI responses
-- 🎨 **Clean Interface**: Simple, functional UI built with Vue.js
-- 🐳 **Easy Deployment**: Docker and Docker Compose support
+- **Multi-Source Search**: Cascading search through DuckDuckGo, Bing, and Google
+- **YouTube Transcripts**: Extract and search through video transcripts
+- **Reddit Integration**: Search Reddit discussions via RSS feeds
+- **Flexible AI Models**: Use any LLM via LiteLLM (OpenAI, Anthropic, Google, etc.)
+- **Conversation History**: All chats and sources stored in SQLite
+- **Streaming Responses**: Real-time AI responses with Server-Sent Events
+- **Clean Interface**: Modern UI built with Vue.js
+- **Easy Deployment**: Docker and Docker Compose support
+
+## Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/home.png" alt="Moplexity Home" width="800">
+  <p><em>Main search interface with conversation history</em></p>
+  
+  <img src="docs/screenshots/chat.png" alt="Chat with Sources" width="800">
+  <p><em>AI responses with source citations</em></p>
+  
+  <img src="docs/screenshots/settings.png" alt="Settings" width="800">
+  <p><em>Model selection and configuration</em></p>
+</div>
+
+> **Note**: Screenshots should be added to `docs/screenshots/` directory. Create the directory and add your screenshots with the names above.
 
 ## Quick Start
 
-### Option 1: Docker (Recommended)
+### Docker (Recommended)
 
-1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/yourusername/moplexity.git
 cd moplexity
-```
-
-2. Set up your API keys:
-```bash
 cp backend/.env.example backend/.env
 # Edit backend/.env and add your API keys
-```
-
-3. Start with Docker Compose:
-```bash
 docker-compose up --build
 ```
 
-4. Open http://localhost:3000 in your browser
+Open http://localhost:3000
 
-### Option 2: Local Development
+### Local Development
 
-1. Run the setup script:
 ```bash
+git clone https://github.com/yourusername/moplexity.git
+cd moplexity
 chmod +x setup.sh
 ./setup.sh
 ```
 
-2. Start the backend:
+Start backend:
 ```bash
 cd backend
 source venv/bin/activate
 uvicorn app.main:app --reload
 ```
 
-3. Start the frontend (in a new terminal):
+Start frontend (new terminal):
 ```bash
 cd frontend
 npm run dev
 ```
 
-4. Open http://localhost:5173 in your browser
+Open http://localhost:5173
 
 ## Configuration
 
-### Backend Configuration
+### Backend
 
 Edit `backend/.env`:
 
 ```env
-# LLM Configuration
 LITELLM_MODEL=gpt-3.5-turbo
 OPENAI_API_KEY=your_key_here
 # ANTHROPIC_API_KEY=your_key_here
 # GOOGLE_API_KEY=your_key_here
-
-# Optional Search APIs
-# BING_SEARCH_API_KEY=your_key_here
-# GOOGLE_SEARCH_API_KEY=your_key_here
-# GOOGLE_CSE_ID=your_cse_id_here
 ```
-
-### Frontend Configuration
-
-Configure API keys and preferences in the Settings page (⚙️ Settings).
 
 ### Supported LLM Models
 
 - OpenAI: `gpt-3.5-turbo`, `gpt-4`, `gpt-4-turbo-preview`
 - Anthropic: `claude-3-sonnet-20240229`, `claude-3-opus-20240229`
 - Google: `gemini-pro`
-- And many more via LiteLLM
+- Many more via [LiteLLM](https://github.com/BerriAI/litellm)
 
 ## Architecture
 
-### Backend (FastAPI + Python)
-
-- **FastAPI**: Modern async web framework
-- **LiteLLM**: Universal LLM API interface
-- **SQLAlchemy**: Database ORM with SQLite
-- **Search Services**: DuckDuckGo, Bing, Google, Reddit RSS, YouTube transcripts
-
-### Frontend (Vue.js)
-
-- **Vue 3**: Composition API
-- **Vite**: Fast build tool
-- **Pinia**: State management
-- **Marked**: Markdown rendering
-
-### Database Schema
-
-- **conversations**: Chat conversations
-- **messages**: User and AI messages
-- **sources**: Search results and citations
-- **search_cache**: Cached search results (1 hour TTL)
+**Backend**: FastAPI + Python + SQLite + LiteLLM  
+**Frontend**: Vue 3 + Vite + Pinia  
+**Search**: DuckDuckGo (primary), Bing, Google, Reddit RSS, YouTube transcripts
 
 ## API Documentation
 
-Once the backend is running, visit:
+When backend is running:
 - Swagger UI: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
 ## Features in Detail
 
-### Multi-Source Search
+**Multi-Source Search**: Cascading strategy - DuckDuckGo → Bing → Google, plus Reddit RSS and YouTube transcripts in parallel.
 
-Moplexity implements a cascading search strategy:
+**Pro Mode**: Enable for more search results (15 vs 10), deeper analysis, and more comprehensive answers.
 
-1. **DuckDuckGo** (primary, no API key needed)
-2. **Bing Search** (fallback, if API key provided)
-3. **Google Search** (last resort, if API key provided)
-4. **Reddit RSS** (parallel, for discussion threads)
-5. **YouTube Transcripts** (for video content)
+**Streaming Responses**: Real-time AI responses using Server-Sent Events for better UX.
 
-### Pro Mode
-
-Enable Pro Mode for:
-- More search results (15 vs 10)
-- Deeper analysis
-- More comprehensive answers
-
-### Streaming Responses
-
-Real-time AI responses using Server-Sent Events (SSE) for a better user experience.
-
-## Development
-
-### Project Structure
+## Project Structure
 
 ```
 moplexity/
-├── backend/
-│   ├── app/
-│   │   ├── api/              # API endpoints
-│   │   ├── services/         # Business logic
-│   │   ├── models.py         # Database models
-│   │   ├── schemas.py        # Pydantic schemas
-│   │   └── main.py           # FastAPI app
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── components/       # Vue components
-│   │   ├── views/            # Page views
-│   │   ├── stores/           # Pinia stores
-│   │   └── main.js
-│   ├── package.json
-│   └── Dockerfile
+├── backend/          # FastAPI backend
+├── frontend/         # Vue.js frontend
 ├── docker-compose.yml
-└── setup.sh
+└── setup.sh          # Setup script
 ```
-
-### Running Tests
-
-```bash
-# Backend tests (coming soon)
-cd backend
-pytest
-
-# Frontend tests (coming soon)
-cd frontend
-npm test
-```
-
-## Deployment
-
-### Production Deployment
-
-1. Update `.env` with production values
-2. Build and deploy with Docker Compose:
-
-```bash
-docker-compose -f docker-compose.yml up -d
-```
-
-3. Set up a reverse proxy (nginx/Caddy) for HTTPS
-4. Configure your domain to point to the server
-
-### Environment Variables
-
-See `backend/.env.example` for all available configuration options.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions welcome! Please feel free to submit a Pull Request.
 
 ## License
 
@@ -212,11 +142,6 @@ MIT License - feel free to use this project for any purpose.
 - Built with [LiteLLM](https://github.com/BerriAI/litellm)
 - Search powered by DuckDuckGo, Bing, and Google
 
-## Support
-
-For issues and questions, please open an issue on GitHub.
-
 ---
 
 **Note**: This project requires API keys for LLM providers. DuckDuckGo search works without an API key, but Bing and Google search require their respective API keys.
-

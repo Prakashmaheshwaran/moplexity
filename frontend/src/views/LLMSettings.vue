@@ -1,58 +1,23 @@
 <template>
   <div class="llm-settings">
     <header class="settings-header">
-      <h1>LLM Configuration</h1>
-      <p>Manage AI model providers and their models</p>
+      <div class="header-content">
+        <button @click="$router.push('/settings')" class="back-button">
+          ← Back to Settings
+        </button>
+        <div class="header-text">
+          <h1>LLM Configuration</h1>
+          <p>Manage AI models</p>
+        </div>
+      </div>
     </header>
 
     <div class="settings-content">
-      <!-- Providers Section -->
-      <section class="providers-section">
-        <div class="section-header">
-          <h2>Providers</h2>
-          <button @click="showProviderForm = true" class="btn-primary">
-            Add Provider
-          </button>
-        </div>
-
-        <div v-if="providers.length === 0" class="empty-state">
-          <p>No providers configured yet. Add your first provider to get started.</p>
-        </div>
-
-        <div class="providers-list">
-          <div
-            v-for="provider in providers"
-            :key="provider.id"
-            class="provider-card"
-            :class="{ 'inactive': !provider.is_active }"
-          >
-            <div class="provider-info">
-              <h3>{{ provider.name }}</h3>
-              <p class="provider-type">{{ provider.provider_type }}</p>
-              <div class="provider-status">
-                <span :class="provider.is_active ? 'status-active' : 'status-inactive'">
-                  {{ provider.is_active ? 'Active' : 'Inactive' }}
-                </span>
-              </div>
-            </div>
-
-            <div class="provider-actions">
-              <button @click="editProvider(provider)" class="btn-secondary">
-                Edit
-              </button>
-              <button @click="deleteProvider(provider.id)" class="btn-danger">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- Models Section -->
       <section class="models-section">
         <div class="section-header">
           <h2>Models</h2>
-          <button @click="showModelForm = true" class="btn-primary" :disabled="providers.length === 0">
+          <button @click="showModelForm = true" class="btn-primary">
             Add Model
           </button>
         </div>
@@ -69,10 +34,9 @@
             :class="{ 'inactive': !model.is_active }"
           >
             <div class="model-info">
-              <h3>{{ model.display_name }}</h3>
-              <p class="model-name">{{ model.model_name }}</p>
-              <p class="model-provider">{{ model.provider?.name || 'Unknown Provider' }}</p>
-              <p v-if="model.description" class="model-description">{{ model.description }}</p>
+              <h3>{{ model.model_name }}</h3>
+              <p v-if="model.provider_type" class="model-provider-type">Provider: {{ model.provider_type }}</p>
+              <p v-if="model.base_url" class="model-base-url">Base URL: {{ model.base_url }}</p>
               <div class="model-status">
                 <span :class="model.is_active ? 'status-active' : 'status-inactive'">
                   {{ model.is_active ? 'Active' : 'Inactive' }}
@@ -93,92 +57,11 @@
       </section>
     </div>
 
-    <!-- Provider Form Modal -->
-    <div v-if="showProviderForm" class="modal-overlay" @click="closeProviderForm">
-      <div class="modal-content" @click.stop>
-        <h3>{{ editingProvider ? 'Edit Provider' : 'Add Provider' }}</h3>
-        <form @submit.prevent="saveProvider" class="provider-form">
-          <div class="form-group">
-            <label for="provider-name">Name:</label>
-            <input
-              id="provider-name"
-              v-model="providerForm.name"
-              type="text"
-              required
-              placeholder="e.g., OpenAI, Anthropic"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="provider-type">Provider Type:</label>
-            <select id="provider-type" v-model="providerForm.provider_type" required>
-              <option value="">Select provider type</option>
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="google">Google</option>
-              <option value="gemini">Gemini</option>
-              <option value="vertexai">Vertex AI</option>
-              <option value="cohere">Cohere</option>
-              <option value="replicate">Replicate</option>
-              <option value="together">Together AI</option>
-              <option value="huggingface">HuggingFace</option>
-              <option value="bedrock">AWS Bedrock</option>
-              <option value="azure">Azure OpenAI</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="provider-api-key">API Key:</label>
-            <input
-              id="provider-api-key"
-              v-model="providerForm.api_key"
-              type="password"
-              required
-              placeholder="Enter API key"
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                v-model="providerForm.is_active"
-              />
-              Active
-            </label>
-          </div>
-
-          <div class="form-actions">
-            <button type="button" @click="closeProviderForm" class="btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" class="btn-primary">
-              {{ editingProvider ? 'Update' : 'Add' }} Provider
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <!-- Model Form Modal -->
     <div v-if="showModelForm" class="modal-overlay" @click="closeModelForm">
       <div class="modal-content" @click.stop>
         <h3>{{ editingModel ? 'Edit Model' : 'Add Model' }}</h3>
         <form @submit.prevent="saveModel" class="model-form">
-          <div class="form-group">
-            <label for="model-provider">Provider:</label>
-            <select id="model-provider" v-model="modelForm.provider_id" required>
-              <option value="">Select provider</option>
-              <option
-                v-for="provider in providers"
-                :key="provider.id"
-                :value="provider.id"
-              >
-                {{ provider.name }} ({{ provider.provider_type }})
-              </option>
-            </select>
-          </div>
-
           <div class="form-group">
             <label for="model-name">Model Name:</label>
             <input
@@ -186,29 +69,43 @@
               v-model="modelForm.model_name"
               type="text"
               required
-              placeholder="e.g., gpt-3.5-turbo, gemini/gemini-2.0-flash"
+              placeholder="e.g., gemini/gemini-2.0-pro, ollama/llama2, openai/gpt-4"
+              @input="autoInferProviderType"
             />
+            <small class="form-hint">Full model identifier (provider/model or just model name)</small>
           </div>
 
           <div class="form-group">
-            <label for="model-display-name">Display Name:</label>
+            <label for="model-api-key">API Key:</label>
             <input
-              id="model-display-name"
-              v-model="modelForm.display_name"
-              type="text"
+              id="model-api-key"
+              v-model="modelForm.api_key"
+              type="password"
               required
-              placeholder="e.g., GPT-3.5 Turbo, Gemini 2.0 Flash"
+              placeholder="Enter API key"
             />
           </div>
 
           <div class="form-group">
-            <label for="model-description">Description (optional):</label>
-            <textarea
-              id="model-description"
-              v-model="modelForm.description"
-              placeholder="Brief description of the model"
-              rows="3"
-            ></textarea>
+            <label for="model-base-url">Base URL (optional):</label>
+            <input
+              id="model-base-url"
+              v-model="modelForm.base_url"
+              type="url"
+              placeholder="e.g., http://localhost:11434 (for Ollama)"
+            />
+            <small class="form-hint">For custom endpoints like Ollama or self-hosted models</small>
+          </div>
+
+          <div class="form-group">
+            <label for="model-provider-type">Provider Type (optional):</label>
+            <input
+              id="model-provider-type"
+              v-model="modelForm.provider_type"
+              type="text"
+              placeholder="Auto-filled from model name"
+            />
+            <small class="form-hint">Will be inferred from model name if not specified</small>
           </div>
 
           <div class="form-group">
@@ -238,37 +135,23 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const providers = ref([])
 const models = ref([])
-const showProviderForm = ref(false)
 const showModelForm = ref(false)
-const editingProvider = ref(null)
 const editingModel = ref(null)
 
-const providerForm = ref({
-  name: '',
-  provider_type: '',
-  api_key: '',
-  is_active: true
-})
-
 const modelForm = ref({
-  provider_id: '',
   model_name: '',
-  display_name: '',
-  description: '',
+  api_key: '',
+  base_url: '',
+  provider_type: '',
   is_active: true
 })
 
-// Fetch providers and models
-async function fetchProviders() {
-  try {
-    const response = await fetch('/api/llm/providers')
-    if (response.ok) {
-      providers.value = await response.json()
-    }
-  } catch (error) {
-    console.error('Error fetching providers:', error)
+// Auto-infer provider type from model name
+function autoInferProviderType() {
+  const modelName = modelForm.value.model_name
+  if (modelName && '/' in modelName && !modelForm.value.provider_type) {
+    modelForm.value.provider_type = modelName.split('/')[0]
   }
 }
 
@@ -283,56 +166,6 @@ async function fetchModels() {
   }
 }
 
-// Provider CRUD operations
-async function saveProvider() {
-  try {
-    const url = editingProvider.value
-      ? `/api/llm/providers/${editingProvider.value.id}`
-      : '/api/llm/providers'
-
-    const method = editingProvider.value ? 'PUT' : 'POST'
-
-    const response = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(providerForm.value)
-    })
-
-    if (response.ok) {
-      await fetchProviders()
-      closeProviderForm()
-    } else {
-      const error = await response.json()
-      alert(`Error: ${error.detail || 'Failed to save provider'}`)
-    }
-  } catch (error) {
-    console.error('Error saving provider:', error)
-    alert('Failed to save provider')
-  }
-}
-
-async function deleteProvider(id) {
-  if (!confirm('Are you sure you want to delete this provider? This will also delete all associated models.')) {
-    return
-  }
-
-  try {
-    const response = await fetch(`/api/llm/providers/${id}`, {
-      method: 'DELETE'
-    })
-
-    if (response.ok) {
-      await fetchProviders()
-      await fetchModels()
-    } else {
-      alert('Failed to delete provider')
-    }
-  } catch (error) {
-    console.error('Error deleting provider:', error)
-    alert('Failed to delete provider')
-  }
-}
-
 // Model CRUD operations
 async function saveModel() {
   try {
@@ -342,10 +175,25 @@ async function saveModel() {
 
     const method = editingModel.value ? 'PUT' : 'POST'
 
+    // Prepare payload - only send non-empty base_url
+    const payload = {
+      model_name: modelForm.value.model_name,
+      api_key: modelForm.value.api_key,
+      is_active: modelForm.value.is_active
+    }
+    
+    if (modelForm.value.base_url) {
+      payload.base_url = modelForm.value.base_url
+    }
+    
+    if (modelForm.value.provider_type) {
+      payload.provider_type = modelForm.value.provider_type
+    }
+
     const response = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(modelForm.value)
+      body: JSON.stringify(payload)
     })
 
     if (response.ok) {
@@ -383,43 +231,31 @@ async function deleteModel(id) {
 }
 
 // Form management
-function editProvider(provider) {
-  editingProvider.value = provider
-  providerForm.value = { ...provider }
-  showProviderForm.value = true
-}
-
 function editModel(model) {
   editingModel.value = model
-  modelForm.value = { ...model }
-  showModelForm.value = true
-}
-
-function closeProviderForm() {
-  showProviderForm.value = false
-  editingProvider.value = null
-  providerForm.value = {
-    name: '',
-    provider_type: '',
-    api_key: '',
-    is_active: true
+  modelForm.value = {
+    model_name: model.model_name || '',
+    api_key: '', // Don't show existing API key for security
+    base_url: model.base_url || '',
+    provider_type: model.provider_type || '',
+    is_active: model.is_active !== undefined ? model.is_active : true
   }
+  showModelForm.value = true
 }
 
 function closeModelForm() {
   showModelForm.value = false
   editingModel.value = null
   modelForm.value = {
-    provider_id: '',
     model_name: '',
-    display_name: '',
-    description: '',
+    api_key: '',
+    base_url: '',
+    provider_type: '',
     is_active: true
   }
 }
 
 onMounted(() => {
-  fetchProviders()
   fetchModels()
 })
 </script>
@@ -429,20 +265,50 @@ onMounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+  min-height: 100vh;
+  background-color: var(--background);
 }
 
 .settings-header {
-  text-align: center;
   margin-bottom: 3rem;
 }
 
-.settings-header h1 {
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.back-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.back-button:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+.header-text {
+  text-align: center;
+  flex: 1;
+}
+
+.header-text h1 {
   font-size: 2.5rem;
   color: var(--primary-color);
   margin-bottom: 0.5rem;
 }
 
-.settings-header p {
+.header-text p {
   color: var(--text-secondary);
   font-size: 1.125rem;
 }
@@ -487,7 +353,7 @@ onMounted(() => {
 }
 
 .btn-secondary {
-  background-color: white;
+  background-color: var(--surface);
   color: var(--text-primary);
   border: 1px solid var(--border);
   padding: 0.5rem 1rem;
@@ -498,7 +364,8 @@ onMounted(() => {
 }
 
 .btn-secondary:hover {
-  background-color: var(--surface);
+  background-color: var(--surface-hover);
+  border-color: var(--border-hover);
 }
 
 .btn-danger {
@@ -522,68 +389,58 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-.providers-list, .models-list {
+.models-list {
   display: grid;
   gap: 1rem;
 }
 
-.provider-card, .model-card {
+.model-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   transition: all 0.2s;
 }
 
-.provider-card:hover, .model-card:hover {
-  box-shadow: var(--shadow-md);
+.model-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-lg);
 }
 
-.provider-card.inactive, .model-card.inactive {
+.model-card.inactive {
   opacity: 0.6;
   background-color: var(--surface);
 }
 
-.provider-info, .model-info {
+.model-info {
   flex: 1;
 }
 
-.provider-info h3, .model-info h3 {
+.model-info h3 {
   margin: 0 0 0.25rem 0;
   font-size: 1.125rem;
   color: var(--text-primary);
+  font-family: monospace;
 }
 
-.provider-type {
+.model-provider-type {
   color: var(--text-secondary);
   font-size: 0.875rem;
   margin: 0.25rem 0;
 }
 
-.model-name {
+.model-base-url {
   color: var(--text-secondary);
   font-size: 0.875rem;
   margin: 0.25rem 0;
   font-family: monospace;
 }
 
-.model-provider {
-  color: var(--primary-color);
-  font-size: 0.875rem;
-  margin: 0.25rem 0;
-  font-weight: 500;
-}
-
-.model-description {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  margin: 0.5rem 0 0.25rem 0;
-}
-
-.provider-status, .model-status {
+.model-status {
   margin-top: 0.5rem;
 }
 
@@ -599,7 +456,7 @@ onMounted(() => {
   font-size: 0.875rem;
 }
 
-.provider-actions, .model-actions {
+.model-actions {
   display: flex;
   gap: 0.5rem;
 }
@@ -618,13 +475,15 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface);
+  border: 1px solid var(--border);
   padding: 2rem;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-xl);
 }
 
 .modal-content h3 {
@@ -632,7 +491,7 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-.provider-form, .model-form {
+.model-form {
   display: grid;
   gap: 1rem;
 }
@@ -653,8 +512,11 @@ onMounted(() => {
 .form-group textarea {
   padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.375rem;
+  border-radius: var(--radius);
   font-size: 0.9rem;
+  background-color: var(--background);
+  color: var(--text-primary);
+  transition: all 0.2s;
 }
 
 .form-group input:focus,
@@ -663,6 +525,18 @@ onMounted(() => {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background-color: var(--surface);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: -0.25rem;
 }
 
 .checkbox-label {
@@ -689,19 +563,34 @@ onMounted(() => {
     padding: 1rem;
   }
 
+  .header-content {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .back-button {
+    align-self: flex-start;
+    font-size: 0.9rem;
+  }
+
+  .header-text h1 {
+    font-size: 2rem;
+  }
+
   .section-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
   }
 
-  .provider-card, .model-card {
+  .model-card {
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
   }
 
-  .provider-actions, .model-actions {
+  .model-actions {
     justify-content: center;
   }
 

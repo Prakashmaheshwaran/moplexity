@@ -83,6 +83,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[int] = None
     model_id: Optional[int] = None
     pro_mode: bool = False
+    focus_mode: str = 'web'  # 'web', 'social', 'academic'
 
 
 class ChatResponse(BaseModel):
@@ -130,7 +131,6 @@ class LLMProviderResponse(LLMProviderBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    models: List["LLMModelResponse"] = []
 
     class Config:
         from_attributes = True
@@ -161,7 +161,8 @@ class LLMModelResponse(LLMModelBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    provider: Optional["LLMProviderResponse"] = None
+    provider_name: Optional[str] = None
+    provider_type: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+from sqlalchemy.orm import joinedload
 from typing import List
-from app.database import get_db
+from app.core.database import get_db
 from app.models import Conversation, Message
 from app.schemas import Conversation as ConversationSchema, ConversationList, ConversationCreate
 
@@ -18,11 +19,12 @@ async def get_conversations(
     """Get all conversations"""
     result = await db.execute(
         select(Conversation)
+        .options(joinedload(Conversation.selected_model))
         .order_by(desc(Conversation.updated_at))
         .offset(skip)
         .limit(limit)
     )
-    conversations = result.scalars().all()
+    conversations = result.unique().scalars().all()
     return conversations
 
 
@@ -33,9 +35,14 @@ async def get_conversation(
 ):
     """Get a specific conversation with all messages"""
     result = await db.execute(
-        select(Conversation).where(Conversation.id == conversation_id)
+        select(Conversation)
+        .options(
+            joinedload(Conversation.messages).joinedload(Message.sources),
+            joinedload(Conversation.selected_model)
+        )
+        .where(Conversation.id == conversation_id)
     )
-    conversation = result.scalar_one_or_none()
+    conversation = result.unique().scalar_one_or_none()
     
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")

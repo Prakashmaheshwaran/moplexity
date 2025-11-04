@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import select
 from app.config import settings
-from app.models import LLMProvider, LLMModel
+from app.base import Base
 
 # Create async engine
 engine = create_async_engine(
@@ -18,9 +18,6 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False
 )
 
-# Base class for models
-Base = declarative_base()
-
 
 # Dependency to get DB session
 async def get_db():
@@ -34,6 +31,8 @@ async def get_db():
 # Seed default data
 async def seed_default_data():
     """Seed default LLM providers and models"""
+    from app.models import LLMProvider, LLMModel
+
     async with AsyncSessionLocal() as session:
         try:
             # Check if we already have providers
@@ -80,70 +79,11 @@ async def seed_default_data():
             for provider in providers:
                 await session.refresh(provider)
 
-            # Default models
-            models_data = [
-                # OpenAI models
-                {
-                    "provider_id": providers[0].id,
-                    "model_name": "gpt-3.5-turbo",
-                    "display_name": "GPT-3.5 Turbo",
-                    "description": "Fast and cost-effective model for most tasks",
-                    "is_active": True
-                },
-                {
-                    "provider_id": providers[0].id,
-                    "model_name": "gpt-4",
-                    "display_name": "GPT-4",
-                    "description": "Most capable GPT model for complex reasoning",
-                    "is_active": True
-                },
-                {
-                    "provider_id": providers[0].id,
-                    "model_name": "gpt-4-turbo",
-                    "display_name": "GPT-4 Turbo",
-                    "description": "Latest GPT-4 model with improved performance",
-                    "is_active": True
-                },
-
-                # Anthropic models
-                {
-                    "provider_id": providers[1].id,
-                    "model_name": "claude-3-sonnet-20240229",
-                    "display_name": "Claude 3 Sonnet",
-                    "description": "Balanced model for most use cases",
-                    "is_active": True
-                },
-                {
-                    "provider_id": providers[1].id,
-                    "model_name": "claude-3-opus-20240229",
-                    "display_name": "Claude 3 Opus",
-                    "description": "Most powerful Claude model for complex tasks",
-                    "is_active": True
-                },
-
-                # Google models
-                {
-                    "provider_id": providers[2].id,
-                    "model_name": "gemini/gemini-2.0-flash",
-                    "display_name": "Gemini 2.0 Flash",
-                    "description": "Fast and efficient multimodal model",
-                    "is_active": True
-                },
-                {
-                    "provider_id": providers[2].id,
-                    "model_name": "gemini/gemini-pro",
-                    "display_name": "Gemini Pro",
-                    "description": "Advanced multimodal model for complex tasks",
-                    "is_active": True
-                }
-            ]
-
-            for model_data in models_data:
-                model = LLMModel(**model_data)
-                session.add(model)
+            # Note: Models are not pre-configured. Users should add models via LLM Settings page.
+            # This allows users to configure only the models they want to use.
 
             await session.commit()
-            print("Default data seeded successfully!")
+            print("Default providers seeded successfully! (No models pre-configured)")
 
         except Exception as e:
             print(f"Error seeding default data: {e}")
@@ -152,6 +92,15 @@ async def seed_default_data():
 
 # Initialize database
 async def init_db():
+    # Run migrations first to handle existing databases
+    from app.utils.migrations import migrate_schema
+    try:
+        await migrate_schema(engine)
+    except Exception as e:
+        print(f"Migration warning: {e}")
+        # Continue even if migration has issues
+    
+    # Create all tables (for new databases or new tables)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

@@ -1,26 +1,47 @@
 <template>
   <div class="model-selector">
-    <label for="model-select" class="model-label">AI Model:</label>
-    <select
-      id="model-select"
-      v-model="selectedModelId"
-      @change="onModelChange"
-      class="model-dropdown"
-      :disabled="loading"
-    >
-      <option value="" disabled v-if="loading">Loading models...</option>
-      <option value="" disabled v-else-if="models.length === 0">No models available</option>
-      <option
-        v-for="model in models"
-        :key="model.id"
-        :value="model.id"
-        :title="model.description"
+    <div class="dropdown-container">
+      <button
+        @click="toggleDropdown"
+        @keydown="handleKeydown"
+        class="dropdown-trigger"
+        :class="{ 'dropdown-open': isOpen }"
+        :disabled="loading"
+        ref="trigger"
       >
-        {{ model.display_name }} ({{ model.provider_name }})
-      </option>
-    </select>
-    <div v-if="selectedModel && selectedModel.description" class="model-description">
-      {{ selectedModel.description }}
+        <div class="selected-model">
+          <div v-if="loading" class="loading-text">Loading...</div>
+          <div v-else-if="models.length === 0" class="no-models-text">No models</div>
+          <div v-else-if="selectedModel" class="model-name-only">
+            {{ selectedModel.model_name }}
+          </div>
+          <div v-else class="placeholder-text">Select model</div>
+        </div>
+        <svg class="dropdown-arrow" :class="{ 'arrow-up': isOpen }" viewBox="0 0 24 24" width="16" height="16">
+          <path d="M7 10l5 5 5-5z"/>
+        </svg>
+      </button>
+
+      <div v-if="isOpen" class="dropdown-menu" ref="dropdown">
+        <div class="dropdown-content">
+          <div
+            v-for="model in models"
+            :key="model.id"
+            @click="selectModel(model.id)"
+            class="dropdown-item"
+            :class="{ 'selected': model.id === parseInt(selectedModelId) }"
+          >
+            <div class="item-checkmark">
+              <svg v-if="model.id === parseInt(selectedModelId)" viewBox="0 0 24 24" width="16" height="16">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+            </div>
+            <div class="item-content">
+              <div class="item-name">{{ model.model_name }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -39,7 +60,8 @@ export default {
     return {
       models: [],
       loading: true,
-      selectedModelId: this.modelValue
+      selectedModelId: this.modelValue,
+      isOpen: false
     }
   },
   computed: {
@@ -49,6 +71,10 @@ export default {
   },
   async mounted() {
     await this.fetchModels()
+    document.addEventListener('click', this.handleClickOutside)
+  },
+  beforeUnmount() {
+    document.removeEventListener('click', this.handleClickOutside)
   },
   methods: {
     async fetchModels() {
@@ -68,9 +94,31 @@ export default {
         this.loading = false
       }
     },
-    onModelChange() {
-      this.$emit('update:modelValue', this.selectedModelId ? parseInt(this.selectedModelId) : null)
+    toggleDropdown() {
+      if (this.loading || this.models.length === 0) return
+      this.isOpen = !this.isOpen
+    },
+    selectModel(modelId) {
+      this.selectedModelId = modelId
+      this.isOpen = false
+      this.$emit('update:modelValue', modelId ? parseInt(modelId) : null)
       this.$emit('model-changed', this.selectedModel)
+    },
+    handleClickOutside(event) {
+      if (!this.$refs.trigger?.contains(event.target) && !this.$refs.dropdown?.contains(event.target)) {
+        this.isOpen = false
+      }
+    },
+    handleKeydown(event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        this.toggleDropdown()
+      } else if (event.key === 'Escape') {
+        this.isOpen = false
+      } else if (event.key === 'ArrowDown' && !this.isOpen) {
+        event.preventDefault()
+        this.isOpen = true
+      }
     }
   },
   watch: {
@@ -86,66 +134,154 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 1rem;
 }
 
-.model-label {
+.dropdown-container {
+  position: relative;
+  min-width: 280px;
+}
+
+.dropdown-trigger {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
   font-size: 0.9rem;
-  font-weight: 500;
-  color: #374151;
 }
 
-.model-dropdown {
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background-color: white;
-  font-size: 0.9rem;
-  min-width: 250px;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-}
-
-.model-dropdown:focus {
-  outline: none;
-  border-color: #3b82f6;
+.dropdown-trigger:hover:not(:disabled) {
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.model-dropdown:disabled {
-  background-color: #f9fafb;
+.dropdown-trigger.dropdown-open {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dropdown-trigger:disabled {
+  background-color: var(--surface);
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
-.model-description {
-  font-size: 0.8rem;
-  color: #6b7280;
+.selected-model {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.model-name-only {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.placeholder-text {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.loading-text,
+.no-models-text {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
   font-style: italic;
-  margin-top: 0.25rem;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .model-label {
-    color: #d1d5db;
+.dropdown-arrow {
+  color: var(--text-secondary);
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dropdown-arrow.arrow-up {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin-top: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-lg);
+  max-height: 300px;
+  overflow: hidden;
+}
+
+.dropdown-content {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid var(--border);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background-color: var(--surface-hover);
+}
+
+.dropdown-item.selected {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+.dropdown-item.selected:hover {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.item-checkmark {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.75rem;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.item-content {
+  display: flex;
+  flex: 1;
+}
+
+.item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .dropdown-container {
+    min-width: 250px;
   }
 
-  .model-dropdown {
-    background-color: #1f2937;
-    border-color: #374151;
-    color: #f9fafb;
-  }
-
-  .model-dropdown:focus {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
-  }
-
-  .model-dropdown:disabled {
-    background-color: #111827;
-  }
-
-  .model-description {
-    color: #9ca3af;
+  .dropdown-menu {
+    max-height: 250px;
   }
 }
 </style>

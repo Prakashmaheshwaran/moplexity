@@ -67,7 +67,7 @@ function formatTime(timestamp) {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: white;
+  background: var(--surface);
   border-right: 1px solid var(--border);
 }
 
@@ -168,8 +168,8 @@ function formatTime(timestamp) {
 }
 
 .btn-delete:hover {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: rgba(220, 38, 38, 0.1);
+  color: #ef4444;
 }
 
 .empty-state {

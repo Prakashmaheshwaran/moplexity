@@ -2,137 +2,17 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import joinedload
-
-from app.database import get_db
-from app.models import LLMProvider, LLMModel
+from app.core.database import get_db
+from app.models import LLMModel
 from app.schemas import (
-    LLMProviderCreate,
-    LLMProviderUpdate,
-    LLMProviderResponse,
     LLMModelCreate,
     LLMModelUpdate,
     LLMModelResponse,
     LLMModelActiveResponse
 )
+from app.schemas.llm import infer_provider_type
 
 router = APIRouter()
-
-
-# Provider endpoints
-@router.get("/providers", response_model=List[LLMProviderResponse])
-async def get_providers(db: AsyncSession = Depends(get_db)):
-    """Get all LLM providers"""
-    result = await db.execute(
-        select(LLMProvider).options(joinedload(LLMProvider.models))
-    )
-    providers = result.scalars().all()
-    return providers
-
-
-@router.post("/providers", response_model=LLMProviderResponse, status_code=status.HTTP_201_CREATED)
-async def create_provider(provider: LLMProviderCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new LLM provider"""
-    # Check if provider name already exists
-    result = await db.execute(
-        select(LLMProvider).where(LLMProvider.name == provider.name)
-    )
-    existing_provider = result.scalar_one_or_none()
-    if existing_provider:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Provider with this name already exists"
-        )
-
-    db_provider = LLMProvider(**provider.dict())
-    db.add(db_provider)
-    await db.commit()
-    await db.refresh(db_provider)
-
-    # Load models relationship
-    result = await db.execute(
-        select(LLMProvider).options(joinedload(LLMProvider.models)).where(LLMProvider.id == db_provider.id)
-    )
-    db_provider = result.scalar_one()
-
-    return db_provider
-
-
-@router.get("/providers/{provider_id}", response_model=LLMProviderResponse)
-async def get_provider(provider_id: int, db: AsyncSession = Depends(get_db)):
-    """Get a specific LLM provider"""
-    result = await db.execute(
-        select(LLMProvider).options(joinedload(LLMProvider.models)).where(LLMProvider.id == provider_id)
-    )
-    provider = result.scalar_one_or_none()
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found"
-        )
-    return provider
-
-
-@router.put("/providers/{provider_id}", response_model=LLMProviderResponse)
-async def update_provider(
-    provider_id: int,
-    provider_update: LLMProviderUpdate,
-    db: AsyncSession = Depends(get_db)
-):
-    """Update an LLM provider"""
-    result = await db.execute(
-        select(LLMProvider).where(LLMProvider.id == provider_id)
-    )
-    provider = result.scalar_one_or_none()
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found"
-        )
-
-    # Check if new name conflicts with existing provider
-    if provider_update.name:
-        result = await db.execute(
-            select(LLMProvider).where(LLMProvider.name == provider_update.name, LLMProvider.id != provider_id)
-        )
-        existing_provider = result.scalar_one_or_none()
-        if existing_provider:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Provider with this name already exists"
-            )
-
-    # Update provider fields
-    for field, value in provider_update.dict(exclude_unset=True).items():
-        setattr(provider, field, value)
-
-    await db.commit()
-    await db.refresh(provider)
-
-    # Load models relationship
-    result = await db.execute(
-        select(LLMProvider).options(joinedload(LLMProvider.models)).where(LLMProvider.id == provider_id)
-    )
-    provider = result.scalar_one()
-
-    return provider
-
-
-@router.delete("/providers/{provider_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_provider(provider_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete an LLM provider"""
-    result = await db.execute(
-        select(LLMProvider).where(LLMProvider.id == provider_id)
-    )
-    provider = result.scalar_one_or_none()
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found"
-        )
-
-    await db.delete(provider)
-    await db.commit()
 
 
 # Model endpoints
@@ -140,7 +20,7 @@ async def delete_provider(provider_id: int, db: AsyncSession = Depends(get_db)):
 async def get_models(db: AsyncSession = Depends(get_db)):
     """Get all LLM models"""
     result = await db.execute(
-        select(LLMModel).options(joinedload(LLMModel.provider))
+        select(LLMModel).order_by(LLMModel.created_at.desc())
     )
     models = result.scalars().all()
     return models
@@ -150,60 +30,37 @@ async def get_models(db: AsyncSession = Depends(get_db)):
 async def get_active_models(db: AsyncSession = Depends(get_db)):
     """Get all active LLM models for dropdown selection"""
     result = await db.execute(
-        select(LLMModel, LLMProvider)
-        .join(LLMProvider)
-        .where(LLMModel.is_active == True, LLMProvider.is_active == True)
+        select(LLMModel)
+        .where(LLMModel.is_active == True)
+        .order_by(LLMModel.model_name)
     )
-
-    active_models = []
-    for model, provider in result:
-        active_models.append(LLMModelActiveResponse(
-            id=model.id,
-            model_name=model.model_name,
-            display_name=model.display_name,
-            description=model.description,
-            provider_name=provider.name,
-            provider_type=provider.provider_type
-        ))
-
-    return active_models
+    models = result.scalars().all()
+    return models
 
 
 @router.post("/models", response_model=LLMModelResponse, status_code=status.HTTP_201_CREATED)
 async def create_model(model: LLMModelCreate, db: AsyncSession = Depends(get_db)):
     """Create a new LLM model"""
-    # Check if provider exists
+    # Check if model name already exists
     result = await db.execute(
-        select(LLMProvider).where(LLMProvider.id == model.provider_id)
-    )
-    provider = result.scalar_one_or_none()
-    if not provider:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Provider not found"
-        )
-
-    # Check if model name already exists for this provider
-    result = await db.execute(
-        select(LLMModel).where(LLMModel.provider_id == model.provider_id, LLMModel.model_name == model.model_name)
+        select(LLMModel).where(LLMModel.model_name == model.model_name)
     )
     existing_model = result.scalar_one_or_none()
     if existing_model:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Model with this name already exists for this provider"
+            detail="Model with this name already exists"
         )
 
-    db_model = LLMModel(**model.dict())
+    # Auto-infer provider_type if not provided
+    model_data = model.dict()
+    if not model_data.get('provider_type') and model_data.get('model_name'):
+        model_data['provider_type'] = infer_provider_type(model_data['model_name'])
+
+    db_model = LLMModel(**model_data)
     db.add(db_model)
     await db.commit()
     await db.refresh(db_model)
-
-    # Load provider relationship
-    result = await db.execute(
-        select(LLMModel).options(joinedload(LLMModel.provider)).where(LLMModel.id == db_model.id)
-    )
-    db_model = result.scalar_one()
 
     return db_model
 
@@ -212,7 +69,7 @@ async def create_model(model: LLMModelCreate, db: AsyncSession = Depends(get_db)
 async def get_model(model_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific LLM model"""
     result = await db.execute(
-        select(LLMModel).options(joinedload(LLMModel.provider)).where(LLMModel.id == model_id)
+        select(LLMModel).where(LLMModel.id == model_id)
     )
     model = result.scalar_one_or_none()
     if not model:
@@ -240,24 +97,18 @@ async def update_model(
             detail="Model not found"
         )
 
-    # Check if provider exists if provider_id is being updated
-    if model_update.provider_id is not None:
-        result = await db.execute(
-            select(LLMProvider).where(LLMProvider.id == model_update.provider_id)
-        )
-        provider = result.scalar_one_or_none()
-        if not provider:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Provider not found"
-            )
-
     # Check for name conflicts if model_name is being updated
-    if model_update.model_name and model_update.provider_id is not None:
+    update_data = model_update.dict(exclude_unset=True)
+    if 'model_name' in update_data:
+        # Auto-infer provider_type if model_name changed and provider_type not explicitly set
+        if 'provider_type' not in update_data:
+            inferred_provider = infer_provider_type(update_data['model_name'])
+            if inferred_provider:
+                update_data['provider_type'] = inferred_provider
+        
         result = await db.execute(
             select(LLMModel).where(
-                LLMModel.provider_id == model_update.provider_id,
-                LLMModel.model_name == model_update.model_name,
+                LLMModel.model_name == update_data['model_name'],
                 LLMModel.id != model_id
             )
         )
@@ -265,21 +116,15 @@ async def update_model(
         if existing_model:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Model with this name already exists for this provider"
+                detail="Model with this name already exists"
             )
 
     # Update model fields
-    for field, value in model_update.dict(exclude_unset=True).items():
+    for field, value in update_data.items():
         setattr(model, field, value)
 
     await db.commit()
     await db.refresh(model)
-
-    # Load provider relationship
-    result = await db.execute(
-        select(LLMModel).options(joinedload(LLMModel.provider)).where(LLMModel.id == model_id)
-    )
-    model = result.scalar_one()
 
     return model
 

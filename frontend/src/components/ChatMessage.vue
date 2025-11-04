@@ -2,10 +2,10 @@
   <div class="chat-message" :class="`message-${message.role}`">
     <div class="message-header">
       <div class="message-avatar">
-        {{ message.role === 'user' ? 'U' : 'M' }}
+        {{ message.role === 'user' ? 'U' : 'A' }}
       </div>
       <div class="message-meta">
-        <span class="message-role">{{ message.role === 'user' ? 'You' : 'Moplexity' }}</span>
+        <span class="message-role">{{ message.role === 'user' ? 'You' : 'AI' }}</span>
         <span class="message-time">{{ formatTime(message.created_at) }}</span>
       </div>
     </div>
@@ -13,7 +13,24 @@
       <div v-if="message.role === 'user'" class="message-text">
         {{ message.content }}
       </div>
-      <div v-else class="message-text markdown-content" v-html="renderedContent"></div>
+      <div v-else>
+        <div class="message-text markdown-content" v-html="renderedContent"></div>
+        
+        <!-- Follow-up Questions -->
+        <div v-if="message.follow_up_questions && message.follow_up_questions.length > 0" class="follow-up-questions">
+          <div class="follow-up-header">Explore more:</div>
+          <div class="follow-up-list">
+            <button
+              v-for="(question, index) in message.follow_up_questions"
+              :key="index"
+              @click="$emit('follow-up-click', question)"
+              class="follow-up-btn"
+            >
+              {{ question }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -29,6 +46,8 @@ const props = defineProps({
     required: true
   }
 })
+
+const emit = defineEmits(['follow-up-click'])
 
 const renderedContent = computed(() => {
   if (props.message.role === 'assistant') {
@@ -55,17 +74,25 @@ function formatTime(timestamp) {
 <style scoped>
 .chat-message {
   margin-bottom: 2rem;
-  animation: fadeIn 0.3s ease-in;
+  animation: fadeInUp 0.4s var(--ease-out-cubic);
+  opacity: 0;
+  animation-fill-mode: forwards;
 }
 
-@keyframes fadeIn {
+.chat-message:nth-child(1) { animation-delay: 0.05s; }
+.chat-message:nth-child(2) { animation-delay: 0.1s; }
+.chat-message:nth-child(3) { animation-delay: 0.15s; }
+.chat-message:nth-child(4) { animation-delay: 0.2s; }
+.chat-message:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -129,6 +156,64 @@ function formatTime(timestamp) {
 
 .message-assistant .message-text {
   font-size: 0.9375rem;
+}
+
+.follow-up-questions {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.follow-up-header {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.follow-up-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.follow-up-btn {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  transform: translateX(0);
+  position: relative;
+  overflow: hidden;
+}
+
+.follow-up-btn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 3px;
+  background: var(--primary-color);
+  transform: scaleY(0);
+  transition: transform var(--transition-base);
+}
+
+.follow-up-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.follow-up-btn:hover::before {
+  transform: scaleY(1);
 }
 </style>
 

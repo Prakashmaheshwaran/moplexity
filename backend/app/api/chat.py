@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.database import get_db
+from app.core.database import get_db
 from app.schemas import ChatRequest, ChatResponse
 from app.models import Conversation, Message, Source
 from app.services.search_service import SearchService
@@ -44,13 +44,35 @@ async def chat(
     db.add(user_message)
     await db.commit()
     
-    # Perform search
+    # Perform search based on focus mode
     search_service = SearchService(db)
     max_results = 15 if request.pro_mode else 10
-    search_results = await search_service.multi_source_search(request.query, max_results)
+    search_results = await search_service.multi_source_search(request.query, max_results, request.focus_mode)
+    
+    # Evaluate result quality and perform smart fallback if needed
+    llm_service = LLMService()
+    await llm_service.set_model(request.model_id, db) if request.model_id else None
+    
+    quality_eval = await llm_service._evaluate_result_quality(request.query, search_results)
+    
+    # If results are insufficient, try searching all sources
+    if not quality_eval["is_sufficient"]:
+        print(f"Initial search quality insufficient ({quality_eval['score']:.2f}), trying cross-source fallback...")
+        fallback_results = await search_service.search_all_sources(request.query, max_results)
+        
+        # Merge results, prioritizing original focus mode results
+        merged_results = search_results.copy()
+        seen_urls = {r.get('url', '') for r in merged_results}
+        
+        for result in fallback_results:
+            if result.get('url') not in seen_urls:
+                merged_results.append(result)
+                seen_urls.add(result.get('url', ''))
+        
+        search_results = merged_results[:max_results]
+        print(f"After fallback: {len(search_results)} total results")
     
     # Generate AI response
-    llm_service = LLMService()
     ai_response = await llm_service.generate_response(
         query=request.query,
         search_results=search_results,
@@ -138,7 +160,29 @@ async def chat_stream(
             yield f"data: {json.dumps({'type': 'status', 'message': 'Searching...'})}\n\n"
             search_service = SearchService(db)
             max_results = 15 if request.pro_mode else 10
-            search_results = await search_service.multi_source_search(request.query, max_results)
+            search_results = await search_service.multi_source_search(request.query, max_results, request.focus_mode)
+            
+            # Evaluate result quality and perform smart fallback if needed
+            llm_service = LLMService()
+            await llm_service.set_model(request.model_id, db) if request.model_id else None
+            
+            quality_eval = await llm_service._evaluate_result_quality(request.query, search_results)
+            
+            # If results are insufficient, try searching all sources
+            if not quality_eval["is_sufficient"]:
+                yield f"data: {json.dumps({'type': 'status', 'message': 'Expanding search...'})}\n\n"
+                fallback_results = await search_service.search_all_sources(request.query, max_results)
+                
+                # Merge results, prioritizing original focus mode results
+                merged_results = search_results.copy()
+                seen_urls = {r.get('url', '') for r in merged_results}
+                
+                for result in fallback_results:
+                    if result.get('url') not in seen_urls:
+                        merged_results.append(result)
+                        seen_urls.add(result.get('url', ''))
+                
+                search_results = merged_results[:max_results]
             
             # Send sources
             yield f"data: {json.dumps({'type': 'sources', 'sources': search_results[:10]})}\n\n"
@@ -146,7 +190,6 @@ async def chat_stream(
             # Generate streaming response
             yield f"data: {json.dumps({'type': 'status', 'message': 'Generating response...'})}\n\n"
             
-            llm_service = LLMService()
             full_content = ""
             
             async for chunk in llm_service.generate_streaming_response(
@@ -181,6 +224,13 @@ async def chat_stream(
                 db.add(source)
             
             await db.commit()
+            
+            # Generate and send follow-up questions
+            try:
+                follow_up_questions = await llm_service._generate_follow_up_questions(request.query, full_content)
+                yield f"data: {json.dumps({'type': 'follow_up_questions', 'questions': follow_up_questions})}\n\n"
+            except Exception as e:
+                print(f"Error generating follow-up questions: {e}")
             
             # Send completion
             yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_message.id})}\n\n"

@@ -1,0 +1,2 @@
+Open-source AI search assistant - Open Knowledge should not be $20/month. Multi-source search with configurable LLM APIs.
+

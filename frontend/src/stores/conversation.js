@@ -7,6 +7,7 @@ export const useConversationStore = defineStore('conversation', () => {
   const currentConversation = ref(null)
   const messages = ref([])
   const sources = ref([])
+  const followUpQuestions = ref([])
   const loading = ref(false)
   const streaming = ref(false)
   const error = ref(null)
@@ -16,11 +17,18 @@ export const useConversationStore = defineStore('conversation', () => {
   // Fetch all conversations
   async function fetchConversations() {
     try {
+      error.value = null
       const response = await axios.get(`${API_BASE}/conversations/`)
-      conversations.value = response.data
+      if (response.data && Array.isArray(response.data)) {
+        conversations.value = response.data
+      } else {
+        conversations.value = []
+        console.warn('Unexpected response format:', response.data)
+      }
     } catch (err) {
       console.error('Error fetching conversations:', err)
-      error.value = 'Failed to fetch conversations'
+      error.value = err.response?.data?.detail || 'Failed to fetch conversations'
+      conversations.value = []
     }
   }
 
@@ -28,13 +36,24 @@ export const useConversationStore = defineStore('conversation', () => {
   async function fetchConversation(id) {
     try {
       loading.value = true
+      error.value = null
       const response = await axios.get(`${API_BASE}/conversations/${id}`)
       currentConversation.value = response.data
       messages.value = response.data.messages || []
-      error.value = null
+      sources.value = []
+      // Extract sources from messages
+      response.data.messages?.forEach(msg => {
+        if (msg.sources && msg.sources.length > 0) {
+          sources.value = [...sources.value, ...msg.sources]
+        }
+      })
+      // Refresh conversations list to update selected state
+      await fetchConversations()
     } catch (err) {
       console.error('Error fetching conversation:', err)
-      error.value = 'Failed to fetch conversation'
+      error.value = err.response?.data?.detail || 'Failed to fetch conversation'
+      currentConversation.value = null
+      messages.value = []
     } finally {
       loading.value = false
     }
@@ -70,7 +89,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // Send chat message (non-streaming)
-  async function sendMessage(query, proMode = false, modelId = null) {
+  async function sendMessage(query, proMode = false, modelId = null, focusMode = 'web') {
     try {
       loading.value = true
       error.value = null
@@ -79,14 +98,16 @@ export const useConversationStore = defineStore('conversation', () => {
         query,
         conversation_id: currentConversation.value?.id,
         model_id: modelId,
-        pro_mode: proMode
+        pro_mode: proMode,
+        focus_mode: focusMode
       })
 
       // Update conversation
       if (!currentConversation.value) {
         currentConversation.value = { id: response.data.conversation_id }
-        await fetchConversations()
       }
+      // Always refresh conversations to show updated list
+      await fetchConversations()
 
       // Add messages
       messages.value.push({
@@ -96,15 +117,18 @@ export const useConversationStore = defineStore('conversation', () => {
         created_at: new Date().toISOString()
       })
 
-      messages.value.push({
+      const assistantMsg = {
         id: response.data.message_id,
         role: 'assistant',
         content: response.data.content,
         created_at: new Date().toISOString(),
-        sources: response.data.sources
-      })
+        sources: response.data.sources,
+        follow_up_questions: response.data.follow_up_questions || []
+      }
+      messages.value.push(assistantMsg)
 
       sources.value = response.data.sources
+      followUpQuestions.value = response.data.follow_up_questions || []
 
       return response.data
     } catch (err) {
@@ -117,7 +141,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // Send chat message (streaming)
-  async function sendMessageStreaming(query, proMode = false, modelId = null) {
+  async function sendMessageStreaming(query, proMode = false, modelId = null, focusMode = 'web') {
     try {
       streaming.value = true
       error.value = null
@@ -136,7 +160,8 @@ export const useConversationStore = defineStore('conversation', () => {
         role: 'assistant',
         content: '',
         created_at: new Date().toISOString(),
-        sources: []
+        sources: [],
+        follow_up_questions: []
       }
       messages.value.push(assistantMessage)
 
@@ -149,7 +174,8 @@ export const useConversationStore = defineStore('conversation', () => {
           query,
           conversation_id: currentConversation.value?.id,
           model_id: modelId,
-          pro_mode: proMode
+          pro_mode: proMode,
+          focus_mode: focusMode
         })
       })
 
@@ -170,13 +196,17 @@ export const useConversationStore = defineStore('conversation', () => {
             if (data.type === 'conversation_id') {
               if (!currentConversation.value) {
                 currentConversation.value = { id: data.conversation_id }
-                await fetchConversations()
               }
+              // Refresh conversations list
+              await fetchConversations()
             } else if (data.type === 'sources') {
               sources.value = data.sources
               assistantMessage.sources = data.sources
             } else if (data.type === 'content') {
               assistantMessage.content += data.content
+            } else if (data.type === 'follow_up_questions') {
+              assistantMessage.follow_up_questions = data.questions || []
+              followUpQuestions.value = data.questions || []
             } else if (data.type === 'done') {
               assistantMessage.id = data.message_id
             } else if (data.type === 'error') {
@@ -199,6 +229,7 @@ export const useConversationStore = defineStore('conversation', () => {
     currentConversation.value = null
     messages.value = []
     sources.value = []
+    followUpQuestions.value = []
   }
 
   return {
@@ -206,6 +237,7 @@ export const useConversationStore = defineStore('conversation', () => {
     currentConversation,
     messages,
     sources,
+    followUpQuestions,
     loading,
     streaming,
     error,

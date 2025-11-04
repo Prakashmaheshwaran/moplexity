@@ -35,8 +35,13 @@ const props = defineProps({
 const sourceTypeLabel = computed(() => {
   const labels = {
     'web': 'Web',
-    'reddit': 'Reddit',
-    'youtube': 'YouTube'
+    'social': 'Social',
+    'reddit': 'Social',
+    'youtube': 'Social',
+    'linkedin': 'Social',
+    'twitter': 'Social',
+    'github': 'Social',
+    'academic': 'Academic Papers'
   }
   return labels[props.source.source_type] || 'Web'
 })
@@ -60,16 +65,36 @@ const displayUrl = computed(() => {
 
 <style scoped>
 .source-card {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 1rem;
-  transition: all 0.2s;
+  transition: all var(--transition-base);
+  animation: fadeInScale 0.3s var(--ease-out-cubic);
+  animation-fill-mode: both;
+}
+
+.source-card:nth-child(1) { animation-delay: 0.05s; }
+.source-card:nth-child(2) { animation-delay: 0.1s; }
+.source-card:nth-child(3) { animation-delay: 0.15s; }
+.source-card:nth-child(4) { animation-delay: 0.2s; }
+.source-card:nth-child(5) { animation-delay: 0.25s; }
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .source-card:hover {
   border-color: var(--primary-color);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
 }
 
 .source-header {
@@ -89,18 +114,45 @@ const displayUrl = computed(() => {
 }
 
 .badge-web {
-  background-color: #dbeafe;
-  color: #1e40af;
+  background-color: var(--surface-hover);
+  color: var(--primary-color);
+  border: 1px solid var(--border);
 }
 
 .badge-reddit {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--surface-hover);
+  color: #ff6b6b;
+  border: 1px solid var(--border);
 }
 
 .badge-youtube {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--surface-hover);
+  color: #ffd93d;
+  border: 1px solid var(--border);
+}
+
+.badge-linkedin {
+  background-color: var(--surface-hover);
+  color: #0077b5;
+  border: 1px solid var(--border);
+}
+
+.badge-twitter {
+  background-color: var(--surface-hover);
+  color: #1da1f2;
+  border: 1px solid var(--border);
+}
+
+.badge-github {
+  background-color: var(--surface-hover);
+  color: #ffffff;
+  border: 1px solid var(--border);
+}
+
+.badge-academic {
+  background-color: var(--surface-hover);
+  color: #8b5cf6;
+  border: 1px solid var(--border);
 }
 
 .source-index {
@@ -119,10 +171,12 @@ const displayUrl = computed(() => {
 .source-title a {
   color: var(--text-primary);
   text-decoration: none;
+  font-weight: 600;
 }
 
 .source-title a:hover {
   color: var(--primary-color);
+  text-decoration: underline;
 }
 
 .source-snippet {
@@ -130,6 +184,7 @@ const displayUrl = computed(() => {
   font-size: 0.875rem;
   color: var(--text-secondary);
   line-height: 1.6;
+  opacity: 0.9;
 }
 
 .source-link {

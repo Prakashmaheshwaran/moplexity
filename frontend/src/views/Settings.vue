@@ -40,49 +40,6 @@
           </div>
         </section>
 
-        <!-- API Keys -->
-        <section class="settings-section">
-          <h2>API Keys</h2>
-          <p class="section-description">
-            Configure your API keys. These are stored locally in your browser.
-          </p>
-
-          <div class="form-group">
-            <label for="openai_key">OpenAI API Key</label>
-            <input
-              id="openai_key"
-              type="password"
-              v-model="apiKeys.openai_api_key"
-              @change="updateKey('openai_api_key')"
-              placeholder="sk-..."
-              class="form-control"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="anthropic_key">Anthropic API Key</label>
-            <input
-              id="anthropic_key"
-              type="password"
-              v-model="apiKeys.anthropic_api_key"
-              @change="updateKey('anthropic_api_key')"
-              placeholder="sk-ant-..."
-              class="form-control"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="google_key">Google API Key</label>
-            <input
-              id="google_key"
-              type="password"
-              v-model="apiKeys.google_api_key"
-              @change="updateKey('google_api_key')"
-              placeholder="AIza..."
-              class="form-control"
-            />
-          </div>
-        </section>
 
         <!-- Search API Keys -->
         <section class="settings-section">
@@ -191,7 +148,7 @@ function updateKey(key) {
 <style scoped>
 .settings {
   min-height: 100vh;
-  background-color: var(--surface);
+  background-color: var(--background);
   padding: 2rem;
 }
 
@@ -209,9 +166,9 @@ function updateKey(key) {
 
 .btn-back {
   padding: 0.5rem 1rem;
-  background-color: white;
+  background-color: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   text-decoration: none;
   color: var(--text-primary);
   font-size: 0.875rem;
@@ -219,7 +176,8 @@ function updateKey(key) {
 }
 
 .btn-back:hover {
-  background-color: var(--surface);
+  background-color: var(--surface-hover);
+  border-color: var(--border-hover);
 }
 
 .settings-header h1 {
@@ -235,10 +193,16 @@ function updateKey(key) {
 }
 
 .settings-section {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.settings-section:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow);
 }
 
 .settings-section h2 {
@@ -303,15 +267,22 @@ function updateKey(key) {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: border-color 0.2s;
+  background-color: var(--background);
+  color: var(--text-primary);
+  transition: all 0.2s;
 }
 
 .form-control:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background-color: var(--surface);
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
 }
 
 .form-group-checkbox {
