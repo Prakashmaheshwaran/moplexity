@@ -38,8 +38,6 @@ Moplexity is an open-source alternative to Perplexity AI. It combines multi-sour
   <p><em>Model selection and configuration</em></p>
 </div>
 
-> **Note**: Screenshots should be added to `docs/screenshots/` directory. Create the directory and add your screenshots with the names above.
-
 ## Quick Start
 
 ### Docker (Recommended)
