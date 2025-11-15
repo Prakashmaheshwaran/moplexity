@@ -6,6 +6,7 @@ from app.services.youtube_service import YouTubeService
 from app.services.reddit_service import RedditService
 from app.services.wikipedia_service import WikipediaService
 from app.core.config import settings
+import logging
 import asyncio
 import json
 from datetime import datetime, timedelta
@@ -39,20 +40,20 @@ class SearchService:
                 wiki_results = await self.wikipedia_service.search_wikipedia(query, max_results=min(3, max_results))
                 if wiki_results:
                     results.extend(wiki_results)
-                    print(f"Wikipedia search returned {len(wiki_results)} results")
+                    logging.getLogger(__name__).info("Wikipedia search returned %d results", len(wiki_results))
             except Exception as e:
-                print(f"Wikipedia search failed: {e}")
+                logging.getLogger(__name__).exception("Wikipedia search failed")
             
             # Then try DuckDuckGo
             try:
                 ddg_results = await self._duckduckgo_search(query, max_results - len(results))
                 if ddg_results:
                     results.extend(ddg_results)
-                    print(f"DuckDuckGo search returned {len(ddg_results)} results")
+                    logging.getLogger(__name__).info("DuckDuckGo search returned %d results", len(ddg_results))
                 else:
-                    print("DuckDuckGo search returned no results")
+                    logging.getLogger(__name__).info("DuckDuckGo search returned no results")
             except Exception as e:
-                print(f"DuckDuckGo search failed: {e}")
+                logging.getLogger(__name__).exception("DuckDuckGo search failed")
             
             # If still no results, try Wikipedia fallback
             if len(results) == 0:
@@ -60,23 +61,23 @@ class SearchService:
                     wiki_fallback = await self.wikipedia_service.search_wikipedia_fallback(query, max_results=3)
                     if wiki_fallback:
                         results.extend(wiki_fallback)
-                        print(f"Wikipedia fallback returned {len(wiki_fallback)} results")
+                        logging.getLogger(__name__).info("Wikipedia fallback returned %d results", len(wiki_fallback))
                 except Exception as e:
-                    print(f"Wikipedia fallback failed: {e}")
+                    logging.getLogger(__name__).exception("Wikipedia fallback failed")
             
             if len(results) < max_results and settings.bing_search_api_key:
                 try:
                     bing_results = await self._bing_search(query, max_results - len(results))
                     results.extend(bing_results)
                 except Exception as e:
-                    print(f"Bing search failed: {e}")
+                    logging.getLogger(__name__).exception("Bing search failed")
             
             if len(results) < max_results and settings.google_search_api_key and settings.google_cse_id:
                 try:
                     google_results = await self._google_search(query, max_results - len(results))
                     results.extend(google_results)
                 except Exception as e:
-                    print(f"Google search failed: {e}")
+                    logging.getLogger(__name__).exception("Google search failed")
         
         elif focus_mode == 'social':
             # Social search: Reddit, YouTube, LinkedIn, Twitter, GitHub - all marked as 'social'
@@ -87,7 +88,7 @@ class SearchService:
                     result["source_type"] = "social"
                 results.extend(reddit_results)
             except Exception as e:
-                print(f"Reddit search failed: {e}")
+                logging.getLogger(__name__).exception("Reddit search failed")
             
             # YouTube search
             if len(results) < max_results:
@@ -98,7 +99,7 @@ class SearchService:
                         result["source_type"] = "social"
                     results.extend(youtube_results)
                 except Exception as e:
-                    print(f"YouTube search failed: {e}")
+                    logging.getLogger(__name__).exception("YouTube search failed")
             
             # LinkedIn search using structured query
             if len(results) < max_results:
@@ -110,7 +111,7 @@ class SearchService:
                         result["source_type"] = "social"
                     results.extend(ddg_results)
                 except Exception as e:
-                    print(f"LinkedIn search failed: {e}")
+                    logging.getLogger(__name__).exception("LinkedIn search failed")
             
             # Twitter/X search
             if len(results) < max_results:
@@ -122,7 +123,7 @@ class SearchService:
                         result["source_type"] = "social"
                     results.extend(ddg_results)
                 except Exception as e:
-                    print(f"Twitter search failed: {e}")
+                    logging.getLogger(__name__).exception("Twitter search failed")
             
             # GitHub search
             if len(results) < max_results:
@@ -134,7 +135,7 @@ class SearchService:
                         result["source_type"] = "social"
                     results.extend(ddg_results)
                 except Exception as e:
-                    print(f"GitHub search failed: {e}")
+                    logging.getLogger(__name__).exception("GitHub search failed")
             
             # Fallback to Wikipedia and web if not enough results
             if len(results) < max_results:
@@ -145,7 +146,7 @@ class SearchService:
                         result["source_type"] = "social"
                     results.extend(wiki_results)
                 except Exception as e:
-                    print(f"Wikipedia fallback failed: {e}")
+                    logging.getLogger(__name__).exception("Wikipedia fallback failed")
                 
                 if len(results) < max_results:
                     try:
@@ -155,7 +156,7 @@ class SearchService:
                             result["source_type"] = "social"
                         results.extend(ddg_results)
                     except Exception as e:
-                        print(f"DuckDuckGo search failed: {e}")
+                        logging.getLogger(__name__).exception("DuckDuckGo search failed")
         
         elif focus_mode == 'academic':
             # Academic search: Focus on scholarly sources
@@ -167,7 +168,7 @@ class SearchService:
                     result["source_type"] = "academic"
                 results.extend(ddg_results)
             except Exception as e:
-                print(f"Academic search failed: {e}")
+                logging.getLogger(__name__).exception("Academic search failed")
             
             # Fallback to Wikipedia and regular web search (still mark as academic)
             if len(results) < max_results:
@@ -178,7 +179,7 @@ class SearchService:
                         result["source_type"] = "academic"
                     results.extend(wiki_results)
                 except Exception as e:
-                    print(f"Wikipedia fallback failed: {e}")
+                    logging.getLogger(__name__).exception("Wikipedia fallback failed")
                 
                 if len(results) < max_results:
                     try:
@@ -188,12 +189,44 @@ class SearchService:
                             result["source_type"] = "academic"
                         results.extend(ddg_results)
                     except Exception as e:
-                        print(f"DuckDuckGo search failed: {e}")
+                        logging.getLogger(__name__).exception("DuckDuckGo search failed")
         
         # Cache results
         await self._cache_results(cache_key, results)
         
         return results[:max_results]
+
+    async def search_across_modes(self, query: str, modes: List[str], max_results: int = 10) -> List[Dict]:
+        seen_urls = set()
+        merged: List[Dict] = []
+        for mode in modes:
+            partial = await self.multi_source_search(query, max_results, mode)
+            for r in partial:
+                u = r.get('url', '')
+                if u in seen_urls:
+                    continue
+                merged.append(r)
+                seen_urls.add(u)
+            if len(merged) >= max_results:
+                break
+        return merged[:max_results]
+
+    async def search_all_sources(self, query: str, max_results: int = 10) -> List[Dict]:
+        """Aggregate results across web, social, and academic with de-duplication"""
+        modes = ['web', 'social', 'academic']
+        seen_urls = set()
+        merged: List[Dict] = []
+        for mode in modes:
+            partial = await self.multi_source_search(query, max_results, mode)
+            for r in partial:
+                u = r.get('url', '')
+                if not u or u in seen_urls:
+                    continue
+                merged.append(r)
+                seen_urls.add(u)
+            if len(merged) >= max_results:
+                break
+        return merged[:max_results]
     
     async def _duckduckgo_search(self, query: str, max_results: int) -> List[Dict]:
         """Search using DuckDuckGo with retry logic"""
@@ -209,8 +242,8 @@ class SearchService:
                 
                 results = []
                 with DDGS() as ddgs:
-                    search_results = ddgs.text(query, max_results=max_results)
-                    for result in search_results:
+                    fetched = await asyncio.to_thread(lambda: list(ddgs.text(query, max_results=max_results)))
+                    for result in fetched:
                         # Skip invalid results
                         if not result.get("title") or not result.get("href"):
                             continue
@@ -222,10 +255,10 @@ class SearchService:
                         })
                 
                 if results:
-                    print(f"DuckDuckGo search successful: {len(results)} results for query: {query[:50]}")
+                    logging.getLogger(__name__).info("DuckDuckGo search successful: %d results", len(results))
                     return results
                 else:
-                    print(f"DuckDuckGo returned no results (attempt {attempt + 1}/{max_retries})")
+                    logging.getLogger(__name__).info("DuckDuckGo returned no results (attempt %d/%d)", attempt + 1, max_retries)
                     # If no results and not last attempt, wait and retry
                     if attempt < max_retries - 1:
                         await asyncio.sleep(retry_delay)
@@ -233,17 +266,17 @@ class SearchService:
                     
             except Exception as e:
                 error_msg = str(e)
-                print(f"DuckDuckGo error (attempt {attempt + 1}/{max_retries}): {error_msg}")
+                logging.getLogger(__name__).warning("DuckDuckGo error (attempt %d/%d): %s", attempt + 1, max_retries, error_msg)
                 
                 # If rate limited, wait before retrying
                 if "Ratelimit" in error_msg or "rate" in error_msg.lower() or "Ratelimit" in str(type(e).__name__):
                     if attempt < max_retries - 1:
-                        print(f"Rate limited, waiting {retry_delay} seconds before retry...")
+                        logging.getLogger(__name__).info("Rate limited, waiting %s seconds before retry...", retry_delay)
                         await asyncio.sleep(retry_delay)
                         retry_delay *= 2  # Exponential backoff
                         continue
                     else:
-                        print("DuckDuckGo rate limit exceeded after all retries")
+                        logging.getLogger(__name__).warning("DuckDuckGo rate limit exceeded after all retries")
                         return []
                 
                 # For other errors, try again if not last attempt
@@ -251,7 +284,7 @@ class SearchService:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 2
                 else:
-                    print(f"DuckDuckGo search failed after {max_retries} attempts")
+                    logging.getLogger(__name__).warning("DuckDuckGo search failed after %d attempts", max_retries)
                     return []
         
         return []
@@ -283,7 +316,7 @@ class SearchService:
                 })
             return results
         except Exception as e:
-            print(f"Bing search error: {e}")
+            logging.getLogger(__name__).exception("Bing search error")
             return []
     
     async def _google_search(self, query: str, max_results: int) -> List[Dict]:
@@ -317,7 +350,7 @@ class SearchService:
                 })
             return results
         except Exception as e:
-            print(f"Google search error: {e}")
+            logging.getLogger(__name__).exception("Google search error")
             return []
     
     async def _get_cached_results(self, cache_key: str) -> Optional[List[Dict]]:
@@ -336,7 +369,7 @@ class SearchService:
             if cache_entry:
                 return cache_entry.results_json
         except Exception as e:
-            print(f"Cache retrieval error: {e}")
+            logging.getLogger(__name__).exception("Cache retrieval error")
         
         return None
     
@@ -350,6 +383,6 @@ class SearchService:
             self.db.add(cache_entry)
             await self.db.commit()
         except Exception as e:
-            print(f"Cache storage error: {e}")
+            logging.getLogger(__name__).exception("Cache storage error")
             await self.db.rollback()
 

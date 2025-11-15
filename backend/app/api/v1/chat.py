@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,6 +11,7 @@ from app.services.llm_service import LLMService
 import json
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/", response_model=ChatResponse)
@@ -44,21 +46,31 @@ async def chat(
     db.add(user_message)
     await db.commit()
     
-    # Perform search based on focus mode
     search_service = SearchService(db)
     max_results = 15 if request.pro_mode else 10
-    search_results = await search_service.multi_source_search(request.query, max_results, request.focus_mode)
+    if request.pro_mode and (not request.focus_modes or len(request.focus_modes) == 0):
+        # In Pro mode, expand across all modes for better diversity
+        search_results = await search_service.search_across_modes(request.query, ['web', 'social', 'academic'], max_results)
+    elif request.focus_modes and len(request.focus_modes) > 0:
+        search_results = await search_service.search_across_modes(request.query, request.focus_modes, max_results)
+    else:
+        search_results = await search_service.multi_source_search(request.query, max_results, request.focus_mode)
     
     # Evaluate result quality and perform smart fallback if needed
     llm_service = LLMService()
     if request.model_id:
         await llm_service.set_model(request.model_id, db)
+        # Ensure conversation reflects selected model
+        if conversation and conversation.selected_model_id != request.model_id:
+            conversation.selected_model_id = request.model_id
+            db.add(conversation)
+            await db.commit()
     
     quality_eval = await llm_service._evaluate_result_quality(request.query, search_results)
     
     # If results are insufficient, try searching all sources
     if not quality_eval["is_sufficient"]:
-        print(f"Initial search quality insufficient ({quality_eval['score']:.2f}), trying cross-source fallback...")
+        logger.info("Initial search quality insufficient (%.2f), trying cross-source fallback...", quality_eval['score'])
         fallback_results = await search_service.search_all_sources(request.query, max_results)
         
         # Merge results, prioritizing original focus mode results
@@ -71,7 +83,7 @@ async def chat(
                 seen_urls.add(result.get('url', ''))
         
         search_results = merged_results[:max_results]
-        print(f"After fallback: {len(search_results)} total results")
+        logger.info("After fallback: %d total results", len(search_results))
     
     # Generate AI response
     ai_response = await llm_service.generate_response(
@@ -82,34 +94,28 @@ async def chat(
         model_id=request.model_id
     )
     
-    # Save assistant message
     assistant_message = Message(
         conversation_id=conversation.id,
         role="assistant",
         content=ai_response["content"]
     )
-    db.add(assistant_message)
-    await db.commit()
-    await db.refresh(assistant_message)
-    
-    # Save sources
     sources = []
-    for result in search_results[:10]:  # Limit to top 10 sources
-        source = Source(
-            message_id=assistant_message.id,
-            title=result["title"],
-            url=result["url"],
-            snippet=result["snippet"],
-            source_type=result["source_type"]
+    for result in search_results[:10]:
+        sources.append(
+            Source(
+                message_id=0,
+                title=result["title"],
+                url=result["url"],
+                snippet=result["snippet"],
+                source_type=result["source_type"]
+            )
         )
-        db.add(source)
-        sources.append(source)
-    
-    await db.commit()
-    
-    # Refresh to get source IDs
-    for source in sources:
-        await db.refresh(source)
+    async with db.begin():
+        db.add(assistant_message)
+        await db.flush()
+        for s in sources:
+            s.message_id = assistant_message.id
+            db.add(s)
     
     return ChatResponse(
         conversation_id=conversation.id,
@@ -161,7 +167,12 @@ async def chat_stream(
             yield f"data: {json.dumps({'type': 'status', 'message': 'Searching...'})}\n\n"
             search_service = SearchService(db)
             max_results = 15 if request.pro_mode else 10
-            search_results = await search_service.multi_source_search(request.query, max_results, request.focus_mode)
+            if request.pro_mode and (not request.focus_modes or len(request.focus_modes) == 0):
+                search_results = await search_service.search_across_modes(request.query, ['web', 'social', 'academic'], max_results)
+            elif request.focus_modes and len(request.focus_modes) > 0:
+                search_results = await search_service.search_across_modes(request.query, request.focus_modes, max_results)
+            else:
+                search_results = await search_service.multi_source_search(request.query, max_results, request.focus_mode)
             
             # Evaluate result quality and perform smart fallback if needed
             llm_service = LLMService()
@@ -232,13 +243,18 @@ async def chat_stream(
                 follow_up_questions = await llm_service._generate_follow_up_questions(request.query, full_content)
                 yield f"data: {json.dumps({'type': 'follow_up_questions', 'questions': follow_up_questions})}\n\n"
             except Exception as e:
-                print(f"Error generating follow-up questions: {e}")
+                logger.exception("Error generating follow-up questions")
             
             # Send completion
             yield f"data: {json.dumps({'type': 'done', 'message_id': assistant_message.id})}\n\n"
             
         except Exception as e:
+            logger.exception("SSE chat error")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
     
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no"
+    }
+    return StreamingResponse(generate(), media_type="text/event-stream", headers=headers)
 

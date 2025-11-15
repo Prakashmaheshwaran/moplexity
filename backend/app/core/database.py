@@ -6,7 +6,7 @@ from app.base import Base
 # Create async engine
 engine = create_async_engine(
     settings.database_url,
-    echo=True,
+    echo=settings.debug,
     future=True
 )
 

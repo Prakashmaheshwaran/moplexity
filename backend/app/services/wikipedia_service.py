@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 import httpx
 import re
+import logging
 
 
 class WikipediaService:
@@ -56,7 +57,7 @@ class WikipediaService:
             return results
             
         except Exception as e:
-            print(f"Wikipedia search error: {e}")
+            logging.getLogger(__name__).exception("Wikipedia search error")
             return []
     
     async def _get_article_summary(self, title: str) -> Optional[Dict]:
@@ -82,7 +83,7 @@ class WikipediaService:
             }
             
         except Exception as e:
-            print(f"Wikipedia summary error for {title}: {e}")
+            logging.getLogger(__name__).exception("Wikipedia summary error for %s", title)
             return None
     
     async def search_wikipedia_fallback(self, query: str, max_results: int = 3) -> List[Dict]:
@@ -103,7 +104,7 @@ class WikipediaService:
             return results
             
         except Exception as e:
-            print(f"Wikipedia fallback error: {e}")
+            logging.getLogger(__name__).exception("Wikipedia fallback error")
             return []
     
     def _extract_key_terms(self, query: str) -> List[str]:

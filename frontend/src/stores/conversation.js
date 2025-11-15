@@ -89,7 +89,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // Send chat message (non-streaming)
-  async function sendMessage(query, proMode = false, modelId = null, focusMode = 'web') {
+  async function sendMessage(query, proMode = false, modelId = null, focusModes = ['web']) {
     try {
       loading.value = true
       error.value = null
@@ -99,7 +99,7 @@ export const useConversationStore = defineStore('conversation', () => {
         conversation_id: currentConversation.value?.id,
         model_id: modelId,
         pro_mode: proMode,
-        focus_mode: focusMode
+        focus_modes: focusModes
       })
 
       // Update conversation
@@ -141,7 +141,7 @@ export const useConversationStore = defineStore('conversation', () => {
   }
 
   // Send chat message (streaming)
-  async function sendMessageStreaming(query, proMode = false, modelId = null, focusMode = 'web') {
+  async function sendMessageStreaming(query, proMode = false, modelId = null, focusModes = ['web']) {
     try {
       streaming.value = true
       error.value = null
@@ -175,43 +175,51 @@ export const useConversationStore = defineStore('conversation', () => {
           conversation_id: currentConversation.value?.id,
           model_id: modelId,
           pro_mode: proMode,
-          focus_mode: focusMode
+          focus_modes: focusModes
         })
       })
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+      let buffer = ''
 
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += decoder.decode(value, { stream: true })
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6))
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
 
-            if (data.type === 'conversation_id') {
-              if (!currentConversation.value) {
-                currentConversation.value = { id: data.conversation_id }
-              }
-              // Refresh conversations list
-              await fetchConversations()
-            } else if (data.type === 'sources') {
-              sources.value = data.sources
-              assistantMessage.sources = data.sources
-            } else if (data.type === 'content') {
-              assistantMessage.content += data.content
-            } else if (data.type === 'follow_up_questions') {
-              assistantMessage.follow_up_questions = data.questions || []
-              followUpQuestions.value = data.questions || []
-            } else if (data.type === 'done') {
-              assistantMessage.id = data.message_id
-            } else if (data.type === 'error') {
-              error.value = data.message
+        for (const event of events) {
+          const dataLines = event.split('\n').filter(l => l.startsWith('data: '))
+          if (dataLines.length === 0) continue
+          const payload = dataLines.map(l => l.slice(6)).join('')
+          let data
+          try {
+            data = JSON.parse(payload)
+          } catch (e) {
+            continue
+          }
+
+          if (data.type === 'conversation_id') {
+            if (!currentConversation.value) {
+              currentConversation.value = { id: data.conversation_id }
             }
+            await fetchConversations()
+          } else if (data.type === 'sources') {
+            sources.value = data.sources
+            assistantMessage.sources = data.sources
+          } else if (data.type === 'content') {
+            assistantMessage.content += data.content
+          } else if (data.type === 'follow_up_questions') {
+            assistantMessage.follow_up_questions = data.questions || []
+            followUpQuestions.value = data.questions || []
+          } else if (data.type === 'done') {
+            assistantMessage.id = data.message_id
+          } else if (data.type === 'error') {
+            error.value = data.message
           }
         }
       }

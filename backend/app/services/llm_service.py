@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.models import Message, LLMModel
 from app.schemas.llm import infer_provider_type
 import litellm
+import logging
 import os
 
 
@@ -30,10 +31,8 @@ class LLMService:
             if not provider_type:
                 provider_type = infer_provider_type(model.model_name)
 
-            # Set API key for this provider dynamically
-            if provider_type:
-                api_key_env_var = self._get_api_key_env_var(provider_type)
-                os.environ[api_key_env_var] = model.api_key
+            # Keep model reference with its api key; avoid mutating process env
+            self.current_model.provider_type = provider_type
 
             # Set base URL if provided (for custom endpoints like Ollama)
             if model.base_url:
@@ -44,7 +43,7 @@ class LLMService:
 
             return True
         except Exception as e:
-            print(f"Error setting model {model_id}: {e}")
+            logging.getLogger(__name__).exception("Error setting model %s", model_id)
             return False
 
     def _get_api_key_env_var(self, provider_type: str) -> str:
@@ -181,6 +180,9 @@ Format your response:
             # Add base_url if provided (for custom endpoints like Ollama)
             if self.current_model.base_url:
                 completion_params["api_base"] = self.current_model.base_url
+            # Pass api_key directly
+            if getattr(self.current_model, 'api_key', None):
+                completion_params["api_key"] = self.current_model.api_key
             
             # Call LiteLLM
             response = await litellm.acompletion(**completion_params)
@@ -196,7 +198,7 @@ Format your response:
             }
         
         except Exception as e:
-            print(f"LLM error: {e}")
+            logging.getLogger(__name__).exception("LLM error")
             return {
                 "content": f"I apologize, but I encountered an error generating a response: {str(e)}",
                 "follow_up_questions": []
@@ -273,6 +275,8 @@ Format your response:
             # Add base_url if provided (for custom endpoints like Ollama)
             if self.current_model.base_url:
                 completion_params["api_base"] = self.current_model.base_url
+            if getattr(self.current_model, 'api_key', None):
+                completion_params["api_key"] = self.current_model.api_key
             
             # Stream response from LiteLLM
             response = await litellm.acompletion(**completion_params)
@@ -282,7 +286,7 @@ Format your response:
                     yield chunk.choices[0].delta.content
         
         except Exception as e:
-            print(f"LLM streaming error: {e}")
+            logging.getLogger(__name__).exception("LLM streaming error")
             yield f"\n\nI apologize, but I encountered an error: {str(e)}"
     
     async def _get_conversation_history(
@@ -394,6 +398,5 @@ Format your response:
             return questions[:3]
         
         except Exception as e:
-            print(f"Follow-up generation error: {e}")
+            logging.getLogger(__name__).exception("Follow-up generation error")
             return []
-

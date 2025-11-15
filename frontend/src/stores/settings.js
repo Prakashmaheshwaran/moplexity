@@ -10,10 +10,10 @@ export const useSettingsStore = defineStore('settings', () => {
     google_search_api_key: '',
     google_cse_id: ''
   })
-
-  const model = ref('gpt-3.5-turbo')
+  const adminToken = ref('')
   const streamingEnabled = ref(true)
   const proMode = ref(false)
+  const defaultFocusSources = ref(['web'])
 
   // Load settings from localStorage
   function loadSettings() {
@@ -21,9 +21,10 @@ export const useSettingsStore = defineStore('settings', () => {
     if (saved) {
       const parsed = JSON.parse(saved)
       apiKeys.value = { ...apiKeys.value, ...parsed.apiKeys }
-      model.value = parsed.model || model.value
       streamingEnabled.value = parsed.streamingEnabled ?? true
       proMode.value = parsed.proMode ?? false
+      adminToken.value = parsed.adminToken || ''
+      defaultFocusSources.value = Array.isArray(parsed.defaultFocusSources) ? parsed.defaultFocusSources : ['web']
     }
   }
 
@@ -31,9 +32,10 @@ export const useSettingsStore = defineStore('settings', () => {
   function saveSettings() {
     const settings = {
       apiKeys: apiKeys.value,
-      model: model.value,
       streamingEnabled: streamingEnabled.value,
-      proMode: proMode.value
+      proMode: proMode.value,
+      adminToken: adminToken.value,
+      defaultFocusSources: defaultFocusSources.value
     }
     localStorage.setItem('moplexity-settings', JSON.stringify(settings))
   }
@@ -44,9 +46,13 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings()
   }
 
-  // Update model
-  function updateModel(newModel) {
-    model.value = newModel
+  function updateAdminToken(token) {
+    adminToken.value = token
+    saveSettings()
+  }
+
+  function updateDefaultFocusSources(sources) {
+    defaultFocusSources.value = sources && sources.length ? sources : ['web']
     saveSettings()
   }
 
@@ -67,15 +73,16 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     apiKeys,
-    model,
+    adminToken,
     streamingEnabled,
     proMode,
+    defaultFocusSources,
     loadSettings,
     saveSettings,
     updateApiKey,
-    updateModel,
+    updateAdminToken,
+    updateDefaultFocusSources,
     toggleStreaming,
     toggleProMode
   }
 })
-

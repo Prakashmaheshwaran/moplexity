@@ -146,7 +146,9 @@ const conversationStore = useConversationStore()
 const settingsStore = useSettingsStore()
 const showSidebar = ref(false) // Hidden by default
 const selectedModelId = ref(null)
-const selectedSources = ref(['web'])
+import { useSettingsStore } from '../stores/settings'
+const settingsStore = useSettingsStore()
+const selectedSources = ref(settingsStore.defaultFocusSources && settingsStore.defaultFocusSources.length ? settingsStore.defaultFocusSources : ['web'])
 const quickSuggestions = ref([])
 let sidebarHoverTimeout = null
 
@@ -227,12 +229,12 @@ async function handleSearch(query) {
   
   // Use first selected source as focus mode (for backward compatibility)
   // TODO: Update backend to accept multiple sources
-  const focusMode = selectedSources.value.length > 0 ? selectedSources.value[0] : 'web'
+  const focusModes = selectedSources.value.length > 0 ? selectedSources.value : ['web']
   
   if (settingsStore.streamingEnabled) {
-    await conversationStore.sendMessageStreaming(query, settingsStore.proMode, selectedModelId.value, focusMode)
+    await conversationStore.sendMessageStreaming(query, settingsStore.proMode, selectedModelId.value, focusModes)
   } else {
-    await conversationStore.sendMessage(query, settingsStore.proMode, selectedModelId.value, focusMode)
+    await conversationStore.sendMessage(query, settingsStore.proMode, selectedModelId.value, focusModes)
   }
 }
 
@@ -253,7 +255,7 @@ async function loadConversation(id) {
   
   // Load sources from conversation if available (future enhancement)
   // For now, default to web
-  selectedSources.value = ['web']
+  selectedSources.value = settingsStore.defaultFocusSources && settingsStore.defaultFocusSources.length ? settingsStore.defaultFocusSources : ['web']
 }
 
 async function deleteConversation(id) {
@@ -734,4 +736,3 @@ function getSourceIndex(source) {
   }
 }
 </style>
-

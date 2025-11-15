@@ -2,6 +2,7 @@ from typing import List, Dict
 import feedparser
 import httpx
 import re
+import logging
 
 
 class RedditService:
@@ -46,7 +47,7 @@ class RedditService:
                 })
         
         except Exception as e:
-            print(f"Reddit search error: {e}")
+            logging.getLogger(__name__).exception("Reddit search error")
         
         return results
     
@@ -77,7 +78,7 @@ class RedditService:
                 })
         
         except Exception as e:
-            print(f"Subreddit search error: {e}")
+            logging.getLogger(__name__).exception("Subreddit search error")
         
         return results
     
@@ -113,7 +114,7 @@ class RedditService:
                 })
         
         except Exception as e:
-            print(f"Hot posts error: {e}")
+            logging.getLogger(__name__).exception("Hot posts error")
         
         return results
 

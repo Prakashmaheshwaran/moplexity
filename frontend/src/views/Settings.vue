@@ -7,36 +7,40 @@
       </header>
 
       <div class="settings-content">
-        <!-- Model Configuration -->
+        <!-- Model Management -->
         <section class="settings-section">
           <div class="section-header-with-link">
-            <h2>Model Configuration</h2>
-            <router-link to="/llm-settings" class="btn-link">
-              Manage Providers & Models →
-            </router-link>
+            <h2>Model Management</h2>
+            <button @click="showModelForm = true" class="btn-link">Add Model</button>
           </div>
           <p class="section-description">
-            Configure AI model providers and manage available models in the
-            <router-link to="/llm-settings" class="link">LLM Settings</router-link> page.
+            Configure AI models used by the assistant. Mutations require an Admin Token if configured server-side.
           </p>
-          <div class="form-group">
-            <label for="model">Default LLM Model (Legacy)</label>
-            <select
-              id="model"
-              v-model="settingsStore.model"
-              @change="settingsStore.updateModel(settingsStore.model)"
-              class="form-control"
+          <div v-if="models.length === 0" class="empty-state">
+            <p>No models configured yet. Add models to start using AI features.</p>
+          </div>
+          <div class="models-list">
+            <div
+              v-for="model in models"
+              :key="model.id"
+              class="model-card"
+              :class="{ 'inactive': !model.is_active }"
             >
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              <option value="gpt-4">GPT-4</option>
-              <option value="gpt-4-turbo-preview">GPT-4 Turbo</option>
-              <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
-              <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-              <option value="gemini-pro">Gemini Pro</option>
-            </select>
-            <p class="help-text">
-              This is the legacy model selector. Use the LLM Settings page for full model management.
-            </p>
+              <div class="model-info">
+                <h3>{{ model.model_name }}</h3>
+                <p v-if="model.provider_type" class="model-provider-type">Provider: {{ model.provider_type }}</p>
+                <p v-if="model.base_url" class="model-base-url">Base URL: {{ model.base_url }}</p>
+                <div class="model-status">
+                  <span :class="model.is_active ? 'status-active' : 'status-inactive'">
+                    {{ model.is_active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
+              </div>
+              <div class="model-actions">
+                <button @click="editModel(model)" class="btn-secondary">Edit</button>
+                <button @click="deleteModel(model.id)" class="btn-danger">Delete</button>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -112,6 +116,25 @@
             </label>
             <p class="help-text">Pro mode searches more sources for comprehensive answers</p>
           </div>
+
+          <div class="form-group">
+            <label>Default Focus Sources</label>
+            <div class="focus-source-list">
+              <label class="checkbox-inline">
+                <input type="checkbox" :checked="defaultSourcesSet.has('web')" @change="toggleDefaultSource('web', $event)" />
+                Web
+              </label>
+              <label class="checkbox-inline">
+                <input type="checkbox" :checked="defaultSourcesSet.has('social')" @change="toggleDefaultSource('social', $event)" />
+                Social
+              </label>
+              <label class="checkbox-inline">
+                <input type="checkbox" :checked="defaultSourcesSet.has('academic')" @change="toggleDefaultSource('academic', $event)" />
+                Academic
+              </label>
+            </div>
+            <p class="help-text">Used as initial sources in the chat page.</p>
+          </div>
         </section>
 
         <!-- Info -->
@@ -124,24 +147,188 @@
             Version: 1.0.0
           </p>
         </section>
+
+        <!-- Security -->
+        <section class="settings-section">
+          <h2>Security</h2>
+          <div class="form-group">
+            <label for="admin-token">Admin Token (for model management)</label>
+            <input id="admin-token" type="password" v-model="adminToken" @change="updateAdminToken" class="form-control" placeholder="Optional" />
+            <p class="help-text">If the server configures ADMIN_TOKEN, this token is required for adding, editing, or deleting models.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+      <!-- Model Form Modal -->
+      <div v-if="showModelForm" class="modal-overlay" @click="closeModelForm">
+        <div class="modal-content" @click.stop>
+          <h3>{{ editingModel ? 'Edit Model' : 'Add Model' }}</h3>
+          <form @submit.prevent="saveModel" class="model-form">
+            <div class="form-group">
+              <label for="model-name">Model Name:</label>
+              <input id="model-name" v-model="modelForm.model_name" type="text" required placeholder="provider/model or model name" @input="autoInferProviderType" />
+              <small class="form-hint">Full model identifier (provider/model or just model name)</small>
+            </div>
+            <div class="form-group">
+              <label for="model-api-key">API Key:</label>
+              <input id="model-api-key" v-model="modelForm.api_key" type="password" required placeholder="Enter API key" />
+            </div>
+            <div class="form-group">
+              <label for="model-base-url">Base URL (optional):</label>
+              <input id="model-base-url" v-model="modelForm.base_url" type="url" placeholder="e.g., http://localhost:11434" />
+              <small class="form-hint">For custom endpoints like Ollama or self-hosted models</small>
+            </div>
+            <div class="form-group">
+              <label for="model-provider-type">Provider Type (optional):</label>
+              <input id="model-provider-type" v-model="modelForm.provider_type" type="text" placeholder="Auto-filled from model name" />
+              <small class="form-hint">Will be inferred from model name if not specified</small>
+            </div>
+            <div class="form-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="modelForm.is_active" />
+                Active
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="button" @click="closeModelForm" class="btn-secondary">Cancel</button>
+              <button type="submit" class="btn-primary">{{ editingModel ? 'Update' : 'Add' }} Model</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useSettingsStore } from '../stores/settings'
 
 const settingsStore = useSettingsStore()
 const apiKeys = ref({ ...settingsStore.apiKeys })
+const adminToken = ref(settingsStore.adminToken || '')
+
+// Default sources management
+const defaultSourcesSet = computed(() => new Set(settingsStore.defaultFocusSources))
+function toggleDefaultSource(source, event) {
+  const current = new Set(settingsStore.defaultFocusSources)
+  if (event.target.checked) current.add(source)
+  else current.delete(source)
+  settingsStore.updateDefaultFocusSources([...current])
+}
+
+// Model management state
+const models = ref([])
+const showModelForm = ref(false)
+const editingModel = ref(null)
+const modelForm = ref({
+  model_name: '',
+  api_key: '',
+  base_url: '',
+  provider_type: '',
+  is_active: true
+})
+
+function autoInferProviderType() {
+  const modelName = modelForm.value.model_name
+  if (modelName && modelName.includes('/') && !modelForm.value.provider_type) {
+    modelForm.value.provider_type = modelName.split('/')[0]
+  }
+}
+
+async function fetchModels() {
+  try {
+    const response = await fetch('/api/llm/models')
+    if (response.ok) {
+      models.value = await response.json()
+    }
+  } catch (error) {
+    console.error('Error fetching models:', error)
+  }
+}
+
+async function saveModel() {
+  try {
+    const url = editingModel.value ? `/api/llm/models/${editingModel.value.id}` : '/api/llm/models'
+    const method = editingModel.value ? 'PUT' : 'POST'
+    const payload = {
+      model_name: modelForm.value.model_name,
+      api_key: modelForm.value.api_key,
+      is_active: modelForm.value.is_active
+    }
+    if (modelForm.value.base_url) payload.base_url = modelForm.value.base_url
+    if (modelForm.value.provider_type) payload.provider_type = modelForm.value.provider_type
+
+    const headers = { 'Content-Type': 'application/json' }
+    if (settingsStore.adminToken) headers['Authorization'] = `Bearer ${settingsStore.adminToken}`
+
+    const response = await fetch(url, { method, headers, body: JSON.stringify(payload) })
+    if (response.ok) {
+      await fetchModels()
+      closeModelForm()
+    } else {
+      const error = await response.json().catch(() => ({}))
+      alert(`Error: ${error.detail || 'Failed to save model'}`)
+    }
+  } catch (error) {
+    console.error('Error saving model:', error)
+    alert('Failed to save model')
+  }
+}
+
+async function deleteModel(id) {
+  if (!confirm('Are you sure you want to delete this model?')) return
+  try {
+    const headers = {}
+    if (settingsStore.adminToken) headers['Authorization'] = `Bearer ${settingsStore.adminToken}`
+    const response = await fetch(`/api/llm/models/${id}`, { method: 'DELETE', headers })
+    if (response.ok) {
+      await fetchModels()
+    } else {
+      alert('Failed to delete model')
+    }
+  } catch (error) {
+    console.error('Error deleting model:', error)
+    alert('Failed to delete model')
+  }
+}
+
+function editModel(model) {
+  editingModel.value = model
+  modelForm.value = {
+    model_name: model.model_name || '',
+    api_key: '',
+    base_url: model.base_url || '',
+    provider_type: model.provider_type || '',
+    is_active: model.is_active !== undefined ? model.is_active : true
+  }
+  showModelForm.value = true
+}
+
+function closeModelForm() {
+  showModelForm.value = false
+  editingModel.value = null
+  modelForm.value = {
+    model_name: '',
+    api_key: '',
+    base_url: '',
+    provider_type: '',
+    is_active: true
+  }
+}
 
 onMounted(() => {
   apiKeys.value = { ...settingsStore.apiKeys }
+  fetchModels()
 })
 
 function updateKey(key) {
   settingsStore.updateApiKey(key, apiKeys.value[key])
+}
+
+function updateAdminToken() {
+  settingsStore.updateAdminToken(adminToken.value)
 }
 </script>
 
@@ -301,6 +488,18 @@ function updateKey(key) {
   font-weight: 500;
 }
 
+.focus-source-list {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .form-group-checkbox input[type="checkbox"] {
   cursor: pointer;
 }
@@ -321,4 +520,3 @@ function updateKey(key) {
   margin-bottom: 0;
 }
 </style>
-

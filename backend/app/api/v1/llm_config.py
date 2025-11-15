@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from app.core.database import get_db
 from app.models import LLMModel
 from app.schemas import (
@@ -10,13 +10,14 @@ from app.schemas import (
     LLMModelResponse,
     LLMModelActiveResponse
 )
-from app.schemas.llm import infer_provider_type
+from app.schemas.llm import infer_provider_type, LLMModelPublicResponse
+from app.core.config import settings
 
 router = APIRouter()
 
 
 # Model endpoints
-@router.get("/models", response_model=List[LLMModelResponse])
+@router.get("/models", response_model=List[LLMModelPublicResponse])
 async def get_models(db: AsyncSession = Depends(get_db)):
     """Get all LLM models"""
     result = await db.execute(
@@ -38,8 +39,21 @@ async def get_active_models(db: AsyncSession = Depends(get_db)):
     return models
 
 
-@router.post("/models", response_model=LLMModelResponse, status_code=status.HTTP_201_CREATED)
-async def create_model(model: LLMModelCreate, db: AsyncSession = Depends(get_db)):
+def _require_admin(authorization: Optional[str]):
+    # If admin token is configured, require matching Bearer token; otherwise allow
+    admin_token = getattr(settings, 'admin_token', None)
+    if not admin_token:
+        return
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1]
+    if token == admin_token:
+        return
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+@router.post("/models", response_model=LLMModelPublicResponse, status_code=status.HTTP_201_CREATED)
+async def create_model(model: LLMModelCreate, db: AsyncSession = Depends(get_db), authorization: Optional[str] = Header(None)):
+    _require_admin(authorization)
     """Create a new LLM model"""
     # Check if model name already exists
     result = await db.execute(
@@ -65,7 +79,7 @@ async def create_model(model: LLMModelCreate, db: AsyncSession = Depends(get_db)
     return db_model
 
 
-@router.get("/models/{model_id}", response_model=LLMModelResponse)
+@router.get("/models/{model_id}", response_model=LLMModelPublicResponse)
 async def get_model(model_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific LLM model"""
     result = await db.execute(
@@ -80,12 +94,14 @@ async def get_model(model_id: int, db: AsyncSession = Depends(get_db)):
     return model
 
 
-@router.put("/models/{model_id}", response_model=LLMModelResponse)
+@router.put("/models/{model_id}", response_model=LLMModelPublicResponse)
 async def update_model(
     model_id: int,
     model_update: LLMModelUpdate,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    authorization: Optional[str] = Header(None)
 ):
+    _require_admin(authorization)
     """Update an LLM model"""
     result = await db.execute(
         select(LLMModel).where(LLMModel.id == model_id)
@@ -130,7 +146,8 @@ async def update_model(
 
 
 @router.delete("/models/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_model(model_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_model(model_id: int, db: AsyncSession = Depends(get_db), authorization: Optional[str] = Header(None)):
+    _require_admin(authorization)
     """Delete an LLM model"""
     result = await db.execute(
         select(LLMModel).where(LLMModel.id == model_id)

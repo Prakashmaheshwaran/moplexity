@@ -1,11 +1,9 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 
 class Settings(BaseSettings):
-    # LLM Configuration (Legacy - now handled by database)
-    litellm_model: Optional[str] = None
-    google_api_key: Optional[str] = None
+    # LLM configuration is managed via database models
 
     # Search API Keys (Optional)
     bing_search_api_key: Optional[str] = None
@@ -19,10 +17,11 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     frontend_url: str = "http://localhost:5173"
+    debug: bool = False
+    cors_origins: Optional[str] = None
+    admin_token: Optional[str] = None
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
 
 settings = Settings()

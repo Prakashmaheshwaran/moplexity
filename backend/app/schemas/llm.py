@@ -66,3 +66,15 @@ class LLMModelActiveResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class LLMModelPublicResponse(BaseModel):
+    id: int
+    model_name: str
+    base_url: Optional[str] = None
+    provider_type: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+

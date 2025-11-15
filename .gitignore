@@ -50,3 +50,4 @@ logs/
 htmlcov/
 .pytest_cache/
 
+.trae/

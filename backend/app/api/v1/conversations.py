@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from sqlalchemy.orm import joinedload
@@ -8,6 +9,7 @@ from app.models import Conversation, Message
 from app.schemas import Conversation as ConversationSchema, ConversationList, ConversationCreate
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/", response_model=List[ConversationList])
@@ -29,9 +31,7 @@ async def get_conversations(
         
         return conversations
     except Exception as e:
-        print(f"Error fetching conversations: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error fetching conversations")
         raise HTTPException(status_code=500, detail=f"Error fetching conversations: {str(e)}")
 
 
@@ -59,9 +59,7 @@ async def get_conversation(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error fetching conversation {conversation_id}: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.exception("Error fetching conversation %s", conversation_id)
         raise HTTPException(status_code=500, detail=f"Error fetching conversation: {str(e)}")
 
 

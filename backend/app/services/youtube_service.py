@@ -2,6 +2,7 @@ from typing import List, Dict
 import re
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
+import logging
 
 
 class YouTubeService:
@@ -37,10 +38,10 @@ class YouTubeService:
                 "segments": transcript_list
             }
         except (TranscriptsDisabled, NoTranscriptFound) as e:
-            print(f"Transcript not available for video {video_id}: {e}")
+            logging.getLogger(__name__).warning("Transcript not available for video %s: %s", video_id, str(e))
             return None
         except Exception as e:
-            print(f"Error getting transcript for video {video_id}: {e}")
+            logging.getLogger(__name__).exception("Error getting transcript for video %s", video_id)
             return None
     
     async def search_and_extract(self, query: str) -> List[Dict]:
@@ -68,6 +69,38 @@ class YouTubeService:
                 })
         
         return results
+
+    async def search_youtube(self, query: str, max_results: int = 5) -> List[Dict]:
+        """Search YouTube via DuckDuckGo (no Google API) and return video links"""
+        try:
+            # Prefer site-scoped search to YouTube
+            ddg_query = f"{query} site:youtube.com"
+            from duckduckgo_search import DDGS
+            fetched = []
+            results: List[Dict] = []
+            with DDGS() as ddgs:
+                # Run blocking search in a thread to avoid event loop blocking
+                import asyncio
+                fetched = await asyncio.to_thread(lambda: list(ddgs.text(ddg_query, max_results=max_results)))
+            for item in fetched:
+                title = item.get("title", "")
+                href = item.get("href", "")
+                body = item.get("body", "")
+                if not title or not href:
+                    continue
+                # Extract video id if present to enable transcripts later
+                vid = self.extract_video_id(href)
+                results.append({
+                    "title": title,
+                    "url": href,
+                    "snippet": body[:500],
+                    "source_type": "youtube",
+                    "video_id": vid
+                })
+            return results
+        except Exception as e:
+            logging.getLogger(__name__).exception("YouTube search error")
+            return []
     
     async def get_transcript_by_url(self, url: str) -> Dict:
         """Get transcript by YouTube URL"""
@@ -76,4 +109,3 @@ class YouTubeService:
             return None
         
         return await self.get_transcript(video_id)
-
