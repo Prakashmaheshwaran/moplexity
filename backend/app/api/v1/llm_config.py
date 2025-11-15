@@ -40,10 +40,9 @@ async def get_active_models(db: AsyncSession = Depends(get_db)):
 
 
 def _require_admin(authorization: Optional[str]):
-    # If admin token is configured, require matching Bearer token; otherwise allow
-    admin_token = getattr(settings, 'admin_token', None)
+    admin_token = getattr(settings, "admin_token", None)
     if not admin_token:
-        return
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin token not configured")
     token = None
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1]

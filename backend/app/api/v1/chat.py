@@ -110,12 +110,12 @@ async def chat(
                 source_type=result["source_type"]
             )
         )
-    async with db.begin():
-        db.add(assistant_message)
-        await db.flush()
-        for s in sources:
-            s.message_id = assistant_message.id
-            db.add(s)
+    db.add(assistant_message)
+    await db.flush()
+    for s in sources:
+        s.message_id = assistant_message.id
+        db.add(s)
+    await db.commit()
     
     return ChatResponse(
         conversation_id=conversation.id,
@@ -250,7 +250,7 @@ async def chat_stream(
             
         except Exception as e:
             logger.exception("SSE chat error")
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Internal server error'})}\n\n"
     
     headers = {
         "Cache-Control": "no-cache",

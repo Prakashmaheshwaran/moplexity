@@ -30,10 +30,15 @@ if settings.debug:
 if settings.cors_origins:
     allowed_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 
+# If wildcard origin is present, disable credentials to avoid unsafe combination
+allow_credentials = True
+if "*" in allowed_origins:
+    allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

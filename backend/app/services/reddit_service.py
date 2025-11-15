@@ -8,6 +8,20 @@ import logging
 class RedditService:
     def __init__(self):
         self.base_url = "https://www.reddit.com"
+        self._timeout = 10.0
+
+    async def _http_get(self, url: str) -> str:
+        attempts = 0
+        while attempts < 3:
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(url, follow_redirects=True)
+                    response.raise_for_status()
+                    return response.text
+            except Exception:
+                attempts += 1
+                if attempts >= 3:
+                    raise
     
     async def search_reddit(self, query: str, max_results: int = 5) -> List[Dict]:
         """Search Reddit using RSS feeds"""
@@ -21,12 +35,10 @@ class RedditService:
             rss_url = f"{self.base_url}/search.rss?q={clean_query}&limit={max_results}"
             
             # Fetch RSS feed
-            async with httpx.AsyncClient() as client:
-                response = await client.get(rss_url, follow_redirects=True)
-                response.raise_for_status()
+            response_text = await self._http_get(rss_url)
             
             # Parse RSS feed
-            feed = feedparser.parse(response.text)
+            feed = feedparser.parse(response_text)
             
             for entry in feed.entries[:max_results]:
                 # Extract subreddit from link if possible
@@ -59,11 +71,9 @@ class RedditService:
             clean_query = query.replace(" ", "+")
             rss_url = f"{self.base_url}/r/{subreddit}/search.rss?q={clean_query}&restrict_sr=on&limit={max_results}"
             
-            async with httpx.AsyncClient() as client:
-                response = await client.get(rss_url, follow_redirects=True)
-                response.raise_for_status()
+            response_text = await self._http_get(rss_url)
             
-            feed = feedparser.parse(response.text)
+            feed = feedparser.parse(response_text)
             
             for entry in feed.entries[:max_results]:
                 summary = entry.get('summary', '')
@@ -92,11 +102,9 @@ class RedditService:
             else:
                 rss_url = f"{self.base_url}/hot.rss?limit={max_results}"
             
-            async with httpx.AsyncClient() as client:
-                response = await client.get(rss_url, follow_redirects=True)
-                response.raise_for_status()
+            response_text = await self._http_get(rss_url)
             
-            feed = feedparser.parse(response.text)
+            feed = feedparser.parse(response_text)
             
             for entry in feed.entries[:max_results]:
                 subreddit_match = re.search(r'/r/([^/]+)/', entry.link)

@@ -18,6 +18,21 @@ class SearchService:
         self.youtube_service = YouTubeService()
         self.reddit_service = RedditService()
         self.wikipedia_service = WikipediaService()
+        self._timeout = 10.0
+    
+    async def _fetch_json(self, url: str, headers: Optional[Dict] = None, params: Optional[Dict] = None) -> Dict:
+        import httpx
+        attempts = 0
+        while attempts < 3:
+            try:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.get(url, headers=headers, params=params)
+                    response.raise_for_status()
+                    return response.json()
+            except Exception:
+                attempts += 1
+                if attempts >= 3:
+                    raise
     
     async def multi_source_search(self, query: str, max_results: int = 10, focus_mode: str = 'web') -> List[Dict]:
         """Perform multi-source search based on focus mode
@@ -295,16 +310,10 @@ class SearchService:
             return []
         
         try:
-            import httpx
-            
             url = "https://api.bing.microsoft.com/v7.0/search"
             headers = {"Ocp-Apim-Subscription-Key": settings.bing_search_api_key}
             params = {"q": query, "count": max_results}
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=headers, params=params)
-                response.raise_for_status()
-                data = response.json()
+            data = await self._fetch_json(url, headers=headers, params=params)
             
             results = []
             for item in data.get("webPages", {}).get("value", []):
@@ -325,8 +334,6 @@ class SearchService:
             return []
         
         try:
-            import httpx
-            
             url = "https://www.googleapis.com/customsearch/v1"
             params = {
                 "key": settings.google_search_api_key,
@@ -334,11 +341,7 @@ class SearchService:
                 "q": query,
                 "num": min(max_results, 10)
             }
-            
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, params=params)
-                response.raise_for_status()
-                data = response.json()
+            data = await self._fetch_json(url, params=params)
             
             results = []
             for item in data.get("items", []):

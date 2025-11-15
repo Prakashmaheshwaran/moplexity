@@ -200,7 +200,7 @@ Format your response:
         except Exception as e:
             logging.getLogger(__name__).exception("LLM error")
             return {
-                "content": f"I apologize, but I encountered an error generating a response: {str(e)}",
+                "content": "I apologize, but I encountered an error generating a response.",
                 "follow_up_questions": []
             }
     
@@ -287,7 +287,7 @@ Format your response:
         
         except Exception as e:
             logging.getLogger(__name__).exception("LLM streaming error")
-            yield f"\n\nI apologize, but I encountered an error: {str(e)}"
+            yield "\n\nI apologize, but I encountered an error."
     
     async def _get_conversation_history(
         self,
