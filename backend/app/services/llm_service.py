@@ -400,3 +400,4 @@ Format your response:
         except Exception as e:
             logging.getLogger(__name__).exception("Follow-up generation error")
             return []
+

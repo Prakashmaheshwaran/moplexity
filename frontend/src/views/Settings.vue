@@ -148,7 +148,7 @@
           </p>
         </section>
 
-        <!-- Security -->
+        <!-- Security Settings -->
         <section class="settings-section">
           <h2>Security</h2>
           <div class="form-group">
@@ -157,45 +157,6 @@
             <p class="help-text">If the server configures ADMIN_TOKEN, this token is required for adding, editing, or deleting models.</p>
           </div>
         </section>
-      </div>
-    </div>
-  </div>
-      <!-- Model Form Modal -->
-      <div v-if="showModelForm" class="modal-overlay" @click="closeModelForm">
-        <div class="modal-content" @click.stop>
-          <h3>{{ editingModel ? 'Edit Model' : 'Add Model' }}</h3>
-          <form @submit.prevent="saveModel" class="model-form">
-            <div class="form-group">
-              <label for="model-name">Model Name:</label>
-              <input id="model-name" v-model="modelForm.model_name" type="text" required placeholder="provider/model or model name" @input="autoInferProviderType" />
-              <small class="form-hint">Full model identifier (provider/model or just model name)</small>
-            </div>
-            <div class="form-group">
-              <label for="model-api-key">API Key:</label>
-              <input id="model-api-key" v-model="modelForm.api_key" type="password" required placeholder="Enter API key" />
-            </div>
-            <div class="form-group">
-              <label for="model-base-url">Base URL (optional):</label>
-              <input id="model-base-url" v-model="modelForm.base_url" type="url" placeholder="e.g., http://localhost:11434" />
-              <small class="form-hint">For custom endpoints like Ollama or self-hosted models</small>
-            </div>
-            <div class="form-group">
-              <label for="model-provider-type">Provider Type (optional):</label>
-              <input id="model-provider-type" v-model="modelForm.provider_type" type="text" placeholder="Auto-filled from model name" />
-              <small class="form-hint">Will be inferred from model name if not specified</small>
-            </div>
-            <div class="form-group">
-              <label class="checkbox-label">
-                <input type="checkbox" v-model="modelForm.is_active" />
-                Active
-              </label>
-            </div>
-            <div class="form-actions">
-              <button type="button" @click="closeModelForm" class="btn-secondary">Cancel</button>
-              <button type="submit" class="btn-primary">{{ editingModel ? 'Update' : 'Add' }} Model</button>
-            </div>
-          </form>
-        </div>
       </div>
     </div>
   </div>
@@ -520,3 +481,4 @@ function updateAdminToken() {
   margin-bottom: 0;
 }
 </style>
+

@@ -86,3 +86,4 @@ export const useSettingsStore = defineStore('settings', () => {
     toggleProMode
   }
 })
+

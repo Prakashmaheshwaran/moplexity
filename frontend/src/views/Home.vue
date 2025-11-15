@@ -136,18 +136,16 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useConversationStore } from '../stores/conversation'
-import { useSettingsStore } from '../stores/settings'
+import { useSettingsStore as useSettingsStoreLocal } from '../stores/settings'
 import SearchBar from '../components/SearchBar.vue'
 import ChatMessage from '../components/ChatMessage.vue'
 import SourceCard from '../components/SourceCard.vue'
 import SidebarNavigation from '../components/SidebarNavigation.vue'
 
 const conversationStore = useConversationStore()
-const settingsStore = useSettingsStore()
-const showSidebar = ref(false) // Hidden by default
+const settingsStore = useSettingsStoreLocal()
+const showSidebar = ref(false) // Sidebar hidden by default
 const selectedModelId = ref(null)
-import { useSettingsStore } from '../stores/settings'
-const settingsStore = useSettingsStore()
 const selectedSources = ref(settingsStore.defaultFocusSources && settingsStore.defaultFocusSources.length ? settingsStore.defaultFocusSources : ['web'])
 const quickSuggestions = ref([])
 let sidebarHoverTimeout = null
@@ -267,7 +265,7 @@ async function deleteConversation(id) {
 function startNewChat() {
   conversationStore.resetConversation()
   selectedModelId.value = null
-  selectedSources.value = ['web']
+  selectedSources.value = settingsStore.defaultFocusSources && settingsStore.defaultFocusSources.length ? settingsStore.defaultFocusSources : ['web']
 }
 
 // Group sources by category
@@ -736,3 +734,4 @@ function getSourceIndex(source) {
   }
 }
 </style>
+
