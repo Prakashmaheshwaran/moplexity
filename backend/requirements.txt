@@ -1,14 +1,14 @@
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 sqlalchemy==2.0.23
-pydantic==2.5.0
+pydantic>=2.5.0
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
-litellm==1.17.9
+litellm==1.79.1
 
 # Major LLM Provider Libraries
 google-cloud-aiplatform>=1.40.0  # Vertex AI / Google
-anthropic>=0.7.0  # Claude
+anthropic==0.72.0  # Claude
 cohere>=4.40.0  # Cohere
 replicate>=0.15.0  # Replicate
 together>=0.2.0  # Together AI
