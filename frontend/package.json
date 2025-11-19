@@ -19,7 +19,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest"
   },
   "dependencies": {
     "vue": "^3.3.11",
@@ -31,7 +32,9 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.2",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vitest": "^1.0.0",
+    "jsdom": "^23.0.0",
+    "@vue/test-utils": "^2.4.3"
   }
 }
-

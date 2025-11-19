@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.schemas import SearchResponse
@@ -12,7 +13,7 @@ async def search(
     query: str,
     max_results: int = 10,
     focus_mode: str = 'web',
-    modes: str | None = None,
+    modes: Optional[str] = None,
     db: AsyncSession = Depends(get_db)
 ):
     """Perform multi-source search"""
